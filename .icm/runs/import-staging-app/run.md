@@ -5,5 +5,5 @@
 - link: `.icm/intake/triage/import-staging-app.md`
 - branch: triage/import-staging-app
 - lane: chore
-- pr: pending
+- pr: #2
 - started: 2026-11-24

@@ -1,0 +1,141 @@
+{
+  "employee": {
+    "slug": "exemple",
+    "name": "Camille Exemple",
+    "email": "camille.exemple@example.com",
+    "role": "Gestionnaire administrative (profil fictif)"
+  },
+  "status": "draft",
+  "report": {
+    "schemaVersion": 1,
+    "auditDate": "2026-11-24",
+    "source": "Archive fictive `espace-icm.zip` — données inventées pour la démonstration",
+    "summary": {
+      "headline": "Une structure ICM solide, mais des règles dupliquées et un contexte toujours chargé trop lourd.",
+      "points": [
+        "6 processus routés et 21 contrats d'étape numérotés : la base ICM est en place.",
+        "Le contexte toujours chargé (`CLAUDE.md` + `CONTEXT.md`) fait 9 400 caractères, soit environ 2 700 tokens à chaque tour.",
+        "Trois règles métier vivent à deux endroits différents, avec des versions qui divergent.",
+        "Un export brut de la messagerie dort dans un dossier `sortie/` et contient des données personnelles."
+      ]
+    },
+    "metrics": {
+      "fileCount": 148,
+      "totalSizeBytes": 18350000,
+      "markdownFileCount": 96,
+      "markdownSizeBytes": 212000,
+      "alwaysLoadedChars": 9400,
+      "alwaysLoadedTokensEstimate": 2700,
+      "workflowCount": 6,
+      "stageContractCount": 21,
+      "largestContractChars": 3850,
+      "extra": [
+        { "label": "Fichiers binaires", "value": "41", "note": "PDF et Excel, surtout dans `references/`" },
+        { "label": "Marqueurs [À CONFIRMER]", "value": "12" }
+      ]
+    },
+    "strengths": [
+      {
+        "title": "Contrats d'étape complets",
+        "detail": "Chaque étape a ses sections Entrées / Traitement / Sorties, et les chemins partent de la racine."
+      },
+      {
+        "title": "Validation humaine avant envoi",
+        "detail": "Aucun mail ne part sans un « oui » explicite : la règle est écrite une fois, dans `CLAUDE.md`."
+      },
+      {
+        "title": "Scripts pour le travail mécanique",
+        "detail": "Les conversions Excel et PDF passent par des scripts, pas par l'IA."
+      }
+    ],
+    "findings": [
+      {
+        "id": "C1",
+        "severity": "critique",
+        "category": "sécurité",
+        "title": "Export de messagerie avec données personnelles dans `sortie/`",
+        "path": "processus/relances/sortie/export-boite.txt",
+        "evidence": "Fichier de 2,4 Mo avec des adresses, des numéros de téléphone et des montants de factures. Aucune règle « ne pas lire » ne le protège.",
+        "recommendation": "Supprimer l'export ou le déplacer hors de l'espace ICM. Ajouter une règle d'exclusion dans `CLAUDE.md`."
+      },
+      {
+        "id": "C2",
+        "severity": "élevé",
+        "category": "efficacité tokens",
+        "title": "Le routeur contient un document de référence entier",
+        "path": "CONTEXT.md",
+        "evidence": "`CONTEXT.md` fait 6 100 caractères, dont 4 300 de procédure copiée. Cible ICM : 2 000 caractères.",
+        "recommendation": "Déplacer la procédure dans `_reference/procedure-relances.md` et garder une seule ligne de route."
+      },
+      {
+        "id": "C3",
+        "severity": "élevé",
+        "category": "cohérence",
+        "title": "Délai de relance défini à deux endroits, avec deux valeurs",
+        "path": "_config/regles-metier.md",
+        "evidence": "`_config/regles-metier.md` dit 30 jours ; `processus/relances/etapes/02_tri/CONTEXT.md` dit 45 jours.",
+        "recommendation": "Garder la règle dans `_config/regles-metier.md` et remplacer la copie par un pointeur d'une ligne."
+      },
+      {
+        "id": "C4",
+        "severity": "moyen",
+        "category": "conventions ICM",
+        "title": "Contrat d'étape au-dessus de la limite",
+        "path": "processus/rapport-mensuel/etapes/03_redaction/CONTEXT.md",
+        "evidence": "3 850 caractères pour une limite ICM de 2 400. Le modèle de rapport est recopié dans le contrat.",
+        "recommendation": "Sortir le modèle dans `references/modele-rapport.md` et le citer comme entrée `reference`."
+      },
+      {
+        "id": "C5",
+        "severity": "moyen",
+        "category": "conventions ICM",
+        "title": "Entrées sans étiquette reference / working",
+        "path": "processus/commandes/etapes/",
+        "evidence": "4 contrats sur 5 listent leurs entrées sans dire lesquelles sont stables et lesquelles viennent de l'étape précédente.",
+        "recommendation": "Ajouter l'étiquette à chaque ligne de `## Entrées`."
+      },
+      {
+        "id": "C6",
+        "severity": "faible",
+        "category": "cohérence",
+        "title": "Fichier de projets resté à l'état de modèle",
+        "path": "references/projets.md",
+        "evidence": "Le fichier contient encore les exemples de l'atelier. Deux contrats le chargent.",
+        "recommendation": "Le remplir ou retirer les deux références."
+      },
+      {
+        "id": "C7",
+        "severity": "faible",
+        "category": "efficacité tokens",
+        "title": "Gros fichiers sans consigne « ne pas lire »",
+        "evidence": "41 binaires (PDF, Excel) dans `references/`, sans règle qui dit à l'agent de ne pas les ouvrir sans raison.",
+        "recommendation": "Ajouter une ligne dans `CLAUDE.md` : ne lire un binaire que si l'étape le nomme."
+      }
+    ],
+    "prompts": [
+      {
+        "order": 1,
+        "title": "Sortir l'export de messagerie",
+        "goal": "Retirer les données personnelles de l'espace ICM.",
+        "prompt": "Lis la liste des fichiers de processus/relances/sortie/. Dis-moi lesquels contiennent des données personnelles brutes (adresses, téléphones). Propose où les déplacer hors de l'espace ICM et la ligne à ajouter dans CLAUDE.md pour que tu ne les lises plus. Ne déplace et ne supprime rien sans mon OK."
+      },
+      {
+        "order": 2,
+        "title": "Alléger le routeur",
+        "goal": "Ramener `CONTEXT.md` sous 2 000 caractères.",
+        "prompt": "Lis CONTEXT.md. Repère le texte qui n'est pas une route (procédure, règles). Propose un fichier _reference/procedure-relances.md avec ce texte, et le nouveau CONTEXT.md avec une seule ligne de route vers lui. Montre-moi avant / après, n'applique rien."
+      },
+      {
+        "order": 3,
+        "title": "Une règle, une maison",
+        "goal": "Supprimer la contradiction sur le délai de relance.",
+        "prompt": "Cherche dans tout l'espace les endroits qui fixent un délai de relance. Liste chaque valeur avec son fichier. Propose de garder la règle dans _config/regles-metier.md seulement, et de remplacer chaque copie par un pointeur d'une ligne. Demande-moi quelle valeur est la bonne avant d'écrire."
+      }
+    ],
+    "nextSteps": [
+      "Passer les 3 prompts dans l'ordre, un par session.",
+      "Refaire la mesure du contexte toujours chargé après le prompt 2.",
+      "Revoir le rapport avec J lors du point de vendredi."
+    ]
+  }
+}

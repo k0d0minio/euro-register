@@ -3,11 +3,9 @@ CREATE TABLE "employees" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"email" text NOT NULL,
 	"role" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "employees_slug_unique" UNIQUE("slug"),
-	CONSTRAINT "employees_email_unique" UNIQUE("email")
+	CONSTRAINT "employees_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
 CREATE TABLE "magic_link_tokens" (

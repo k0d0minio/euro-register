@@ -17,6 +17,7 @@ Versions: the app reads version 1 and version 2. Version 2 adds the section `col
 - The seed script refuses a path inside the repo. The only exception is `fixtures/`, which has one invented example: `fixtures/exemple.json`.
 - The seed script is an upsert. The key is `employee.slug`. A second load of the same slug replaces the report.
 - If one file is not valid, the script writes nothing.
+- Emails: the database has no employee email. The sign-in emails are in the env var `EMPLOYEE_EMAILS` only (`slug=email` pairs, comma-separated). `pnpm seed <folder> --print-env` prints that line from the files, and writes nothing.
 
 ## 2. Seed file
 
@@ -25,7 +26,7 @@ Versions: the app reads version 1 and version 2. Version 2 adds the section `col
   "employee": {
     "slug": "prenom-nom",          // kebab-case, ASCII only. URL: /rapport/<slug>
     "name": "Prénom Nom",
-    "email": "prenom.nom@…",       // sign-in address; stored in lowercase
+    "email": "prenom.nom@…",       // optional; never stored in the DB (see below)
     "role": "Fonction"
   },
   "status": "draft",               // "draft" (admins only) or "published" (the employee can read it). Default: "draft"
@@ -151,6 +152,6 @@ The page shows no other Markdown and no HTML. Line breaks in a text field are no
 
 ## 9. Access
 
-- An employee reads only their own report, and only when `status` is `published`.
+- An employee signs in when their email is in `EMPLOYEE_EMAILS`. They read only their own report, and only when `status` is `published`.
 - An admin (email in `ADMIN_EMAILS`) reads all reports, drafts too, and the index `/admin`.
 - Each signed-in person reads the deck `/presentation`.

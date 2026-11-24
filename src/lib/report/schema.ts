@@ -157,7 +157,8 @@ export const seedFileSchema = z.object({
   employee: z.object({
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "kebab-case ASCII"),
     name: text,
-    email: z.email().transform((e) => e.trim().toLowerCase()),
+    /** Optional and never stored: the sign-in emails are in EMPLOYEE_EMAILS. `--print-env` reads it. */
+    email: z.email().transform((e) => e.trim().toLowerCase()).optional(),
     role: text,
   }),
   status: z.enum(["draft", "published"]).default("draft"),

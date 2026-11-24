@@ -3,6 +3,10 @@
  *
  *   pnpm seed <file.json | folder>            validate, then write to the database
  *   pnpm seed <file.json | folder> --check    validate only (no database needed)
+ *   pnpm seed <file.json | folder> --print-env  print the EMPLOYEE_EMAILS line (writes nothing)
+ *
+ * Employee emails are never written to the database (J, 2026-11-24): they go in
+ * the env var EMPLOYEE_EMAILS (.env locally, Vercel in production).
  *
  * The data lives OUTSIDE the repo. The script refuses a path inside the repo,
  * except the invented example in fixtures/.
@@ -43,7 +47,8 @@ function listFiles(target: string): string[] {
 
 async function main() {
   const args = process.argv.slice(2);
-  const checkOnly = args.includes("--check");
+  const printEnv = args.includes("--print-env");
+  const checkOnly = args.includes("--check") || printEnv;
   const target = args.find((a) => !a.startsWith("--"));
   if (!target) fail("usage : pnpm seed <fichier.json | dossier> [--check]");
 
@@ -74,6 +79,13 @@ async function main() {
     console.log(`✓ ${path.basename(file)} (${result.data.report.findings.length} constats)`);
   }
   if (errors > 0) fail(`${errors} fichier(s) invalide(s). Rien n'a été écrit.`);
+  if (printEnv) {
+    const pairs = parsed.filter((p) => p.data.employee.email).map((p) => `${p.data.employee.slug}=${p.data.employee.email}`);
+    const missing = parsed.filter((p) => !p.data.employee.email).map((p) => p.data.employee.slug);
+    console.log(`\nEMPLOYEE_EMAILS=${pairs.join(",")}`);
+    if (missing.length) console.log(`Sans e-mail : ${missing.join(", ")}`);
+    return;
+  }
   if (checkOnly) {
     console.log("Validation OK. Mode --check : rien n'a été écrit.");
     return;
@@ -86,10 +98,10 @@ async function main() {
   for (const { data } of parsed) {
     const [employee] = await db
       .insert(employees)
-      .values(data.employee)
+      .values({ slug: data.employee.slug, name: data.employee.name, role: data.employee.role })
       .onConflictDoUpdate({
         target: employees.slug,
-        set: { name: data.employee.name, email: data.employee.email, role: data.employee.role },
+        set: { name: data.employee.name, role: data.employee.role },
       })
       .returning({ id: employees.id });
 

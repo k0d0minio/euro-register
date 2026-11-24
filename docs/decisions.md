@@ -9,3 +9,5 @@ Each line: the date, the question, J's answer in chat. Values (emails, keys) are
 - 2026-11-24 — One current report for each employee. No history of versions. J: "no" (to keeping old versions).
 - 2026-11-24 — The deck slides are placeholders. J reviews the text before the presentation. J: "agreed".
 - 2026-11-24 — Neon: J told the session to make the dev database itself. Result: refused, because the Kodominio Neon organization is managed by Vercel. The database comes from the Vercel project of the new-customer flow.
+- 2026-11-24 — Employee emails: J: "I will put the emails into an environment variable. I believe that is the safest". The `employees` table has no email column; the sign-in emails are in `EMPLOYEE_EMAILS` (`slug=email` pairs).
+- 2026-11-24 — Report section "Communication entre espaces de travail" (schema version 2), in every report. Asked by J through the session that leads the audit setup.

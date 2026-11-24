@@ -15,8 +15,7 @@ export const employees = pgTable("employees", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
-  /** Always stored lowercase. */
-  email: text("email").notNull().unique(),
+  // No email column: the sign-in emails are in EMPLOYEE_EMAILS only (J, 2026-11-24).
   role: text("role").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

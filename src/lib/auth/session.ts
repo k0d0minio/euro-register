@@ -3,8 +3,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, eq, gt } from "drizzle-orm";
-import { db, employees, isDbConfigured, sessions } from "@/db";
-import { isAdminEmail, isDev } from "@/lib/env";
+import { db, isDbConfigured, sessions } from "@/db";
+import { isAdminEmail, isDev, slugForEmail } from "@/lib/env";
 import { hashToken, newToken } from "./crypto";
 import { SESSION_COOKIE, SESSION_TTL_DAYS } from "./constants";
 
@@ -43,14 +43,10 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 
 /** Null when the email is neither an employee nor an admin (any more). */
 export async function viewerForEmail(email: string): Promise<Viewer | null> {
-  const [employee] = await db()
-    .select({ slug: employees.slug })
-    .from(employees)
-    .where(eq(employees.email, email))
-    .limit(1);
+  const employeeSlug = slugForEmail(email);
   const isAdmin = isAdminEmail(email);
-  if (!employee && !isAdmin) return null;
-  return { email, isAdmin, employeeSlug: employee?.slug ?? null };
+  if (!employeeSlug && !isAdmin) return null;
+  return { email, isAdmin, employeeSlug };
 }
 
 export async function requireViewer(): Promise<Viewer> {

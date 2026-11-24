@@ -1,5 +1,5 @@
 {
-  "id": "5a2d5c0a-b127-4793-a80d-63c97d446ade",
+  "id": "cad6dba6-7dce-46bd-84b6-d78230de875f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -27,12 +27,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "role": {
           "name": "role",
           "type": "text",
@@ -56,13 +50,6 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ]
-        },
-        "employees_email_unique": {
-          "name": "employees_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
           ]
         }
       },

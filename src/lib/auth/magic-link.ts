@@ -1,20 +1,14 @@
 import "server-only";
 import { and, count, eq, gt, isNull } from "drizzle-orm";
-import { db, employees, magicLinkTokens } from "@/db";
-import { appUrl, isAdminEmail } from "@/lib/env";
+import { db, magicLinkTokens } from "@/db";
+import { appUrl, isAdminEmail, slugForEmail } from "@/lib/env";
 import { sendMagicLink } from "@/lib/mail";
 import { hashToken, newToken, normalizeEmail } from "./crypto";
 import { MAGIC_LINK_MAX_PER_WINDOW, MAGIC_LINK_TTL_MINUTES } from "./constants";
 
-/** True when the email may sign in: an employee, or an admin from ADMIN_EMAILS. */
+/** True when the email may sign in: in EMPLOYEE_EMAILS or in ADMIN_EMAILS. */
 export async function isAllowedEmail(email: string): Promise<boolean> {
-  if (isAdminEmail(email)) return true;
-  const rows = await db()
-    .select({ id: employees.id })
-    .from(employees)
-    .where(eq(employees.email, email))
-    .limit(1);
-  return rows.length > 0;
+  return isAdminEmail(email) || slugForEmail(email) !== null;
 }
 
 /**

@@ -53,8 +53,8 @@ In development the mailer writes the sign-in link to the server console and send
 
 - Magic-link token: 256 random bits, stored as a SHA-256 hash, valid 15 minutes, single use (atomic `UPDATE … RETURNING`).
 - Max 3 links for one email in 15 minutes.
-- Only emails in `employees` or `ADMIN_EMAILS` get a link. The answer is the same for every email, and the work runs after the response (`after()`), so the time is the same too.
-- Session: random token in an httpOnly, SameSite=Lax cookie (Secure in production), hash in the database, 7 days. Access is checked again at each request: an email removed from `employees` loses access.
+- Only emails in `EMPLOYEE_EMAILS` or `ADMIN_EMAILS` get a link. The `employees` table has no email column. `magic_link_tokens` and `sessions` keep the email of a sign-in until they expire. The answer is the same for every email, and the work runs after the response (`after()`), so the time is the same too.
+- Session: random token in an httpOnly, SameSite=Lax cookie (Secure in production), hash in the database, 7 days. Access is checked again at each request: an email removed from `EMPLOYEE_EMAILS` loses access.
 - `src/proxy.ts` is an optimistic check only (cookie present). The pages check the session in the database.
 
 ## Technical choices
@@ -69,6 +69,6 @@ See the hand-over list in the first ticket of that repo. In short:
 
 1. Copy the tree, without `node_modules/`, `.next/` and `.env`.
 2. Merge `package.json`, `.gitignore`, `README.md` and `AGENTS.md`/`CLAUDE.md` with the blueprint files; keep the blueprint rules where they disagree.
-3. Set the Vercel env vars: `DATABASE_URL`, `APP_URL`, `ADMIN_EMAILS`, `RESEND_API_KEY`, `MAIL_FROM`.
+3. Set the Vercel env vars: `DATABASE_URL`, `APP_URL`, `ADMIN_EMAILS`, `EMPLOYEE_EMAILS`, `RESEND_API_KEY`, `MAIL_FROM`.
 4. Run `pnpm db:migrate` on the Neon production branch, then `pnpm seed` from the data folder outside the repo.
 5. Verify the sending domain in Resend for `MAIL_FROM`.

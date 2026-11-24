@@ -3,7 +3,7 @@ fce493b5e27da1c9efae33b51da6f71f571c75bdbb6ad71b0a69e19d6916683d  .claude/hooks/
 76a51cfa59286ef6725a250c852b0020347709c37faf1f98db22eb22fdc58d9a  .claude/hooks/guard-plaintext-secrets.sh
 6e3e6760a8a8f0677bc3ee7a577d65e6814974e7c8cf3667b29bb6cad96a4a60  .icm/_system/.gitignore
 db2e67ebd17df81d4d5bcf195552c91b4bf27d47f670027c7d0e4ba22025326a  .icm/_system/ROUTER.md
-ccfffa05810b310bae43e4dc28683bdcd11859759de2789595469948d1cf28ec  .icm/_system/VERSION
+24a8c545a073ed462e971ae0bdc2bb150e6171c6c35034684a7bba79925429aa  .icm/_system/VERSION
 e63b762cfa09f93f86f2af7db472f194e21f6a78a6cf7a94ea61ddafdd5188a9  .icm/_system/agents/review-shots/CONTEXT.md
 cf3ba1897ac483a871a5d0a2ef6d338a884c1bd56779594751949b72e5ae0699  .icm/_system/ci/check.sh
 d1e5e4a4de2b85e4beeb11bce85fc810d8b1a3322e485ffe9b1fa45194b79920  .icm/_system/ci/code.sh
@@ -35,7 +35,7 @@ ea1ab49652bf31b0a0448ad24b7efc6ba3308d60f700490c2ae14ff98ee18ed1  .icm/_system/r
 85c9f9a4a1d19ed0e00a09cf6debc1954561455ebfcf23b72f892b0e0372103e  .icm/_system/scripts/db.sh
 6e202003312ef63ca71f600e4c16defebff48155b91936dedb80b0f0842e2e08  .icm/_system/scripts/dev-server.sh
 44ddb347932da74937e2350e820cf19f8d85d051e4ff85ab58dc8c2cf83345f5  .icm/_system/scripts/lib/gh.sh
-ef1b7ef5186b012855542feb95a43ea1e1145edb3cd263007eef27c21f708697  .icm/_system/scripts/lib/node.sh
+69590a25d42d944586adac0734566d68cf7fe0367c5c78e0b6e4131296f5bdda  .icm/_system/scripts/lib/node.sh
 60389e3f792e25a48eb268d0bd42d3e3b053926fbcdfa4b0734f68d32580c45b  .icm/_system/scripts/lib/project.sh
 f9940b0517ae2a01259f7d45fe0f6fceb880fcd0f58ec3454674f1152f58becd  .icm/_system/scripts/lib/ticket.sh
 f8452f7fa35969e4b73391f7195bf285e330b4f27586a8c52c49246fb269363e  .icm/_system/scripts/linear-state.sh

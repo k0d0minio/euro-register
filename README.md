@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Euro Register — Audit ICM app
 
-## Getting Started
+The app for the ICM audit at Euro Register:
 
-First, run the development server:
+- one audit report for each employee, behind a magic-link sign-in;
+- a deck on the ICM norms and good practice with AI;
+- an admin index of all reports.
+
+**Staging copy.** This folder is the foundation. It will be imported into the repo
+`k0d0minio/euro-register`, on top of its ICM blueprint, with the first ticket of that repo
+(after JAM-567). No remote, no deploy from here.
+
+**The repo will be public.** Employee names, emails, findings and workspace excerpts are
+only in Neon, never in git. `fixtures/exemple.json` is invented.
+
+## Stack
+
+Next.js 16 (App Router, TypeScript) · Tailwind CSS 4 · Motion · Postgres on Neon with Drizzle ·
+Resend · zod. UI in French.
+
+## Routes
+
+| Route | Access |
+|---|---|
+| `/` | Sign-in: email → magic link. |
+| `/connexion/verifier?token=…` | Confirm page. The button (POST) uses the token, so a mail scanner that opens the link does not use it. |
+| `/rapport/[slug]` | The employee of that slug (published report only), or an admin. Else 404. |
+| `/presentation` | Each signed-in person. |
+| `/admin` | Admins only (`ADMIN_EMAILS`). |
+| `/apercu/rapport`, `/apercu/presentation` | Development only, no sign-in, invented data. 404 in production. |
+
+## Run in development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env     # then fill in the values
+pnpm db:migrate          # needs DATABASE_URL
+pnpm seed fixtures/exemple.json
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no `DATABASE_URL`, the sign-in is off, and the previews still work.
+In development the mailer writes the sign-in link to the server console and sends no mail.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Schema: `src/db/schema.ts`. Migrations: `drizzle/` (`pnpm db:generate` after a schema change).
+- Report contract: `src/lib/report/schema.ts` and [`docs/report-schema.md`](docs/report-schema.md).
+- Load reports: `pnpm seed <file | folder outside the repo> [--check]`.
+- `.gitignore` excludes `.env*` (except `.env.example`), `/data/`, `/local-data/`, `/rapports/` and `*.local.json`.
 
-## Learn More
+## Security
 
-To learn more about Next.js, take a look at the following resources:
+- Magic-link token: 256 random bits, stored as a SHA-256 hash, valid 15 minutes, single use (atomic `UPDATE … RETURNING`).
+- Max 3 links for one email in 15 minutes.
+- Only emails in `employees` or `ADMIN_EMAILS` get a link. The answer is the same for every email, and the work runs after the response (`after()`), so the time is the same too.
+- Session: random token in an httpOnly, SameSite=Lax cookie (Secure in production), hash in the database, 7 days. Access is checked again at each request: an email removed from `employees` loses access.
+- `src/proxy.ts` is an optimistic check only (cookie present). The pages check the session in the database.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Technical choices
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Cache Components off.** The Next 16 template turns it on. All pages except the previews read the session, so they are dynamic, and `redirect()` / `notFound()` keep their HTTP status.
+- **Own magic-link code, no auth library.** The flow is small (two tables, ~150 lines) and the rules (allow-list, no email enumeration) are specific.
+- **Neon HTTP driver.** No transactions are necessary; each write is one statement.
 
-## Deploy on Vercel
+## Import into `k0d0minio/euro-register`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See the hand-over list in the first ticket of that repo. In short:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Copy the tree, without `node_modules/`, `.next/` and `.env`.
+2. Merge `package.json`, `.gitignore`, `README.md` and `AGENTS.md`/`CLAUDE.md` with the blueprint files; keep the blueprint rules where they disagree.
+3. Set the Vercel env vars: `DATABASE_URL`, `APP_URL`, `ADMIN_EMAILS`, `RESEND_API_KEY`, `MAIL_FROM`.
+4. Run `pnpm db:migrate` on the Neon production branch, then `pnpm seed` from the data folder outside the repo.
+5. Verify the sending domain in Resend for `MAIL_FROM`.

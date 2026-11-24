@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface-2: #f0ede6;
+  --ink: #1a1c21;
+  --muted: #5c6370;
+  --line: #e3dfd5;
+  --accent: #1d4a7a;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3ebf5;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --sev-critique: #b42318;
+  --sev-critique-bg: #fde7e4;
+  --sev-eleve: #b9520b;
+  --sev-eleve-bg: #fdeedb;
+  --sev-moyen: #8a6a00;
+  --sev-moyen-bg: #f9f0cc;
+  --sev-faible: #36597d;
+  --sev-faible-bg: #e5edf6;
+
+  --code-bg: #1d2027;
+  --code-ink: #e7e9ee;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #111317;
+    --surface: #181b21;
+    --surface-2: #1f232a;
+    --ink: #eceef2;
+    --muted: #9aa1ad;
+    --line: #2a2f38;
+    --accent: #8db4e2;
+    --accent-ink: #0d1626;
+    --accent-soft: #1c2a3d;
+
+    --sev-critique: #ff8f84;
+    --sev-critique-bg: #3a1815;
+    --sev-eleve: #f8ad6b;
+    --sev-eleve-bg: #36230f;
+    --sev-moyen: #e8c95a;
+    --sev-moyen-bg: #312a0f;
+    --sev-faible: #9bbde0;
+    --sev-faible-bg: #1b2735;
+
+    --code-bg: #0b0d10;
+    --code-ink: #e7e9ee;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-code-bg: var(--code-bg);
+  --color-code-ink: var(--code-ink);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif-display);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

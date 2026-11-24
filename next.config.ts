@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Every page except the previews reads the session cookie: plain dynamic
+  // rendering, so redirect() and notFound() keep their HTTP status.
+  // Cache Components is off on purpose (README, "Choix techniques").
   turbopack: {
     rules: {
       "*.css": {

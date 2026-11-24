@@ -22,9 +22,9 @@ function readHash(count: number): number {
  * The URL hash (#3) keeps the current slide.
  */
 export function Deck({ slides, exitHref = "/" }: { slides: SlideDef[]; exitHref?: string }) {
-  const [[index, dir], setState] = useState<[number, number]>([0, 1]);
-  // Do not write the hash before the first read of it.
-  const [hashRead, setHashRead] = useState(false);
+  // hashRead: false until the first read of the hash. The first go() sets it in the same
+  // update as the index, so the hash is never written and no slide renders before that read.
+  const [[index, dir, hashRead], setState] = useState<[number, number, boolean]>([0, 1, false]);
   const reduce = useReducedMotion();
   const last = slides.length - 1;
 
@@ -32,7 +32,7 @@ export function Deck({ slides, exitHref = "/" }: { slides: SlideDef[]; exitHref?
     (next: number) => {
       setState(([cur]) => {
         const clamped = Math.max(0, Math.min(last, next));
-        return clamped === cur ? [cur, 0] : [clamped, clamped > cur ? 1 : -1];
+        return clamped === cur ? [cur, 0, true] : [clamped, clamped > cur ? 1 : -1, true];
       });
     },
     [last],
@@ -42,7 +42,6 @@ export function Deck({ slides, exitHref = "/" }: { slides: SlideDef[]; exitHref?
   useEffect(() => {
     const sync = () => go(readHash(slides.length));
     sync();
-    setHashRead(true);
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [go, slides.length]);

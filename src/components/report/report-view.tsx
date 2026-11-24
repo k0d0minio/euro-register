@@ -4,6 +4,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { RichText } from "@/components/ui/rich-text";
 import { FindingsList } from "./findings-list";
 import { PromptCard } from "./prompt-card";
+import { CollaborationView } from "./collaboration-view";
 
 type Props = {
   employee: { name: string; role: string };
@@ -25,12 +26,13 @@ function formatDate(iso: string | Date) {
   return new Intl.DateTimeFormat("fr-BE", { dateStyle: "long" }).format(d);
 }
 
-const sections = [
+const allSections = [
   { id: "synthese", label: "Synthèse" },
   { id: "mesures", label: "Mesures" },
   { id: "points-forts", label: "Points forts" },
   { id: "constats", label: "Constats" },
   { id: "prompts", label: "Prompts" },
+  { id: "communication", label: "Communication" },
   { id: "suite", label: "Prochaines étapes" },
 ];
 
@@ -72,6 +74,13 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
   for (const e of m.extra) stats.push(e);
 
   const prompts = [...r.prompts].sort((a, b) => a.order - b.order);
+  const sections = allSections.filter(
+    (s) =>
+      (s.id !== "communication" || r.collaboration) &&
+      (s.id !== "points-forts" || r.strengths.length > 0) &&
+      (s.id !== "prompts" || prompts.length > 0) &&
+      (s.id !== "suite" || r.nextSteps.length > 0),
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
@@ -155,6 +164,16 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
                   <li key={p.order}><PromptCard prompt={p} /></li>
                 ))}
               </ol>
+            </Section>
+          )}
+
+          {r.collaboration && (
+            <Section
+              id="communication"
+              title="Communication entre espaces de travail"
+              intro="Les espaces de travail peuvent échanger leurs sorties par des dossiers partagés (OneDrive)."
+            >
+              <CollaborationView data={r.collaboration} />
             </Section>
           )}
 

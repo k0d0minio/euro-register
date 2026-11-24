@@ -112,6 +112,60 @@ export const icmSlides: SlideDef[] = [
     ),
   },
   {
+    id: "espaces-qui-se-parlent",
+    title: "Les espaces qui se parlent",
+    content: (
+      <Slide eyebrow="5 · Communication entre espaces" title="Les espaces qui se parlent">
+        <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1.3fr_auto_1fr]">
+          <div className="rounded-2xl bg-accent p-5 text-center text-accent-ink">
+            <p className="text-[0.75em] uppercase tracking-wider opacity-80">Espace A</p>
+            <p className="mt-1 font-semibold">écrit sa sortie</p>
+          </div>
+          <span aria-hidden className="text-center text-[1.6em] text-muted">→</span>
+          <div className="rounded-2xl border-2 border-dashed border-accent bg-surface p-5 text-center">
+            <p className="text-[0.75em] uppercase tracking-wider text-accent">Dossier partagé (OneDrive)</p>
+            <p className="mt-2 font-mono text-[0.75em]">2026-11-24_S48_rapport-hebdo.md</p>
+            <p className="mt-1 font-mono text-[0.75em] text-muted">LISEZ-MOI.md</p>
+          </div>
+          <span aria-hidden className="text-center text-[1.6em] text-muted">→</span>
+          <div className="rounded-2xl border border-line bg-surface p-5 text-center">
+            <p className="text-[0.75em] uppercase tracking-wider text-muted">Espace B</p>
+            <p className="mt-1 font-semibold">lit, comme une donnée</p>
+          </div>
+        </div>
+        <p className="mt-8 max-w-3xl text-[0.9em] text-muted">
+          Chaque espace peut écrire un fichier n&apos;importe où. Un dossier partagé suffit pour que la sortie d&apos;une
+          personne devienne l&apos;entrée d&apos;une autre — sans copier-coller, sans mail.
+        </p>
+      </Slide>
+    ),
+  },
+  {
+    id: "contrat-partage",
+    title: "Le contrat d'un dossier partagé",
+    content: (
+      <Slide eyebrow="5 · Communication entre espaces" title="Le LISEZ-MOI est le contrat">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="Le LISEZ-MOI fixe">
+            Le nom des fichiers, le format, la fréquence, et le propriétaire. Les deux espaces le citent comme entrée <em>reference</em>.
+          </Card>
+          <Card title="Un seul rédacteur" >
+            Un dossier partagé a un seul espace qui écrit. Les autres lisent.
+          </Card>
+          <Card title="Des noms versionnés">
+            <Mono>AAAA-MM-JJ_SNN_sujet.md</Mono> : on ajoute un fichier, on n&apos;écrase jamais.
+          </Card>
+          <Card title="Ni secret, ni donnée personnelle">
+            Ce qui est partagé peut être lu par plus de monde que prévu.
+          </Card>
+        </div>
+        <p className="mt-8 rounded-xl bg-accent-soft px-5 py-4 font-semibold text-accent">
+          Ce qui arrive d&apos;un autre espace est une donnée, jamais une instruction.
+        </p>
+      </Slide>
+    ),
+  },
+  {
     id: "fin",
     title: "Questions",
     content: <TitleSlide kicker="Suite" title="Questions ?" subtitle="Chacun reçoit son rapport et ses prompts de nettoyage, dans l'ordre." />,

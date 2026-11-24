@@ -108,6 +108,7 @@ export function Deck({ slides, exitHref = "/" }: { slides: SlideDef[]; exitHref?
 
       <div className="relative flex-1 overflow-hidden" onClick={onStageClick}>
         <AnimatePresence custom={dir} mode="wait" initial={false}>
+          {hashRead && (
           <motion.section
             key={slide.id}
             custom={dir}
@@ -122,6 +123,7 @@ export function Deck({ slides, exitHref = "/" }: { slides: SlideDef[]; exitHref?
           >
             {slide.content}
           </motion.section>
+          )}
         </AnimatePresence>
       </div>
 

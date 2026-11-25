@@ -5,5 +5,5 @@
 - link: `.icm/intake/triage/full-report-page.md`
 - branch: triage/full-report-page
 - lane: spine
-- pr: pending
+- pr: #3
 - started: 2026-11-25

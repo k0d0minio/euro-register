@@ -2,16 +2,20 @@
 
 ## Next action
 
-<What the next session, or the operator, does first.>
+The operator reads `spec.md` and ticks Spec approved on
+https://github.com/k0d0minio/euro-register/pull/3. Then the operator says
+`build triage/full-report-page`.
 
 ## How to test
 
-<1 to 3 short sentences that can be said aloud: where to go on the preview, what to do, what the operator must see.>
+Open the admin preview of a report on the preview deployment. Use the table of contents
+to go to the folder structure, expand and filter the tree, and click a finding link of a
+node.
 
 ## Blockers
 
-- none
+- Spec approved is not ticked.
 
 ## Do not touch
 
-- none
+- The report files in `~/euro-register-data/rapports`: the audit sessions own them.

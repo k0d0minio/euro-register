@@ -1,10 +1,16 @@
-import type { ReportContent } from "@/lib/report/schema";
-import { StatusBadge } from "@/components/ui/badges";
+import type { ReportContent, Severity } from "@/lib/report/schema";
 import { Reveal } from "@/components/ui/reveal";
 import { RichText } from "@/components/ui/rich-text";
 import { FindingsList } from "./findings-list";
 import { PromptCard } from "./prompt-card";
 import { CollaborationView } from "./collaboration-view";
+import { formatBytes, formatDate, nf, nodeAnchor } from "./format";
+import { NotesView, QuestionsView } from "./questions-view";
+import { RisksView } from "./risks-view";
+import { StructureTree } from "./structure-tree";
+import { Toc, TocMobile, type TocItem } from "./toc";
+import type { NodeLinks } from "./findings-list";
+import { SeverityBadge, StatusBadge } from "@/components/ui/badges";
 
 type Props = {
   employee: { name: string; role: string };
@@ -13,28 +19,7 @@ type Props = {
   content: ReportContent;
 };
 
-const nf = new Intl.NumberFormat("fr-BE");
-
-function formatBytes(n: number) {
-  if (n < 1024) return `${nf.format(n)} o`;
-  if (n < 1024 ** 2) return `${nf.format(Math.round(n / 1024))} Ko`;
-  return `${new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 }).format(n / 1024 ** 2)} Mo`;
-}
-
-function formatDate(iso: string | Date) {
-  const d = typeof iso === "string" ? new Date(`${iso}T12:00:00`) : iso;
-  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "long" }).format(d);
-}
-
-const allSections = [
-  { id: "synthese", label: "Synthèse" },
-  { id: "mesures", label: "Mesures" },
-  { id: "points-forts", label: "Points forts" },
-  { id: "constats", label: "Constats" },
-  { id: "prompts", label: "Prompts" },
-  { id: "communication", label: "Communication" },
-  { id: "suite", label: "Prochaines étapes" },
-];
+const rank: Record<Severity, number> = { critique: 0, élevé: 1, moyen: 2, faible: 3 };
 
 function Section({ id, title, children, intro }: { id: string; title: string; intro?: string; children: React.ReactNode }) {
   return (
@@ -74,13 +59,50 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
   for (const e of m.extra) stats.push(e);
 
   const prompts = [...r.prompts].sort((a, b) => a.order - b.order);
-  const sections = allSections.filter(
-    (s) =>
-      (s.id !== "communication" || r.collaboration) &&
-      (s.id !== "points-forts" || r.strengths.length > 0) &&
-      (s.id !== "prompts" || prompts.length > 0) &&
-      (s.id !== "suite" || r.nextSteps.length > 0),
-  );
+  const findingsBySeverity = [...r.findings].sort((a, b) => rank[a.severity] - rank[b.severity]);
+  const structure = r.structure;
+  const risks = r.risks ?? [];
+  const questions = r.openQuestions ?? [];
+  const notes = r.notes ?? [];
+
+  // Finding → node of the tree: the node that names the finding, else the node of its path.
+  const nodeLinks: NodeLinks = {};
+  if (structure) {
+    const byPath = new Map(structure.nodes.map((n, i) => [n.path, i]));
+    structure.nodes.forEach((n, i) =>
+      n.findingIds.forEach((id) => {
+        nodeLinks[id] ??= { anchor: nodeAnchor(i), path: n.path };
+      }),
+    );
+    for (const f of r.findings) {
+      if (nodeLinks[f.id] || !f.path) continue;
+      const i = byPath.get(f.path.replace(/^\/+|\/+$/g, ""));
+      if (i !== undefined) nodeLinks[f.id] = { anchor: nodeAnchor(i), path: structure.nodes[i].path };
+    }
+  }
+
+  const hasSuggestions = r.findings.length > 0 || prompts.length > 0 || r.nextSteps.length > 0;
+  const toc: TocItem[] = [
+    { id: "synthese", label: "Synthèse" },
+    { id: "mesures", label: "Mesures" },
+  ];
+  if (r.strengths.length > 0) toc.push({ id: "points-forts", label: "Points forts", count: r.strengths.length });
+  if (structure) toc.push({ id: "arborescence", label: "Arborescence", count: structure.nodes.length });
+  toc.push({ id: "constats", label: "Constats", count: r.findings.length });
+  if (risks.length > 0) toc.push({ id: "risques", label: "Risques", count: risks.length });
+  if (hasSuggestions)
+    toc.push({
+      id: "suggestions",
+      label: "Suggestions",
+      children: [
+        ...(r.findings.length > 0 ? [{ id: "recommandations", label: "Recommandations", count: r.findings.length }] : []),
+        ...(prompts.length > 0 ? [{ id: "prompts", label: "Prompts", count: prompts.length }] : []),
+        ...(r.nextSteps.length > 0 ? [{ id: "suite", label: "Prochaines étapes", count: r.nextSteps.length }] : []),
+      ],
+    });
+  if (questions.length > 0) toc.push({ id: "questions", label: "Questions ouvertes", count: questions.length });
+  if (notes.length > 0) toc.push({ id: "notes", label: "Notes", count: notes.length });
+  if (r.collaboration) toc.push({ id: "communication", label: "Communication" });
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
@@ -93,24 +115,21 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
           <StatusBadge status={status} />
           <span>Audit du {formatDate(r.auditDate)}</span>
           {updatedAt && <span>· mis à jour le {formatDate(updatedAt)}</span>}
+          <span>· schéma v{r.schemaVersion}</span>
         </div>
         <p className="mt-2 text-xs text-muted"><RichText text={r.source} /></p>
       </Reveal>
 
-      <div className="grid gap-12 lg:grid-cols-[180px_1fr]">
+      <div className="grid gap-12 lg:grid-cols-[200px_1fr]">
         <nav aria-label="Sommaire" className="hidden lg:block">
-          <ul className="sticky top-24 space-y-2 border-l border-line text-sm">
-            {sections.map((s) => (
-              <li key={s.id}>
-                <a href={`#${s.id}`} className="-ml-px block border-l border-transparent pl-4 text-muted transition-colors hover:border-ink hover:text-ink">
-                  {s.label}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pb-4">
+            <Toc items={toc} />
+          </div>
         </nav>
 
         <div className="min-w-0 space-y-16">
+          <TocMobile items={toc} />
+
           <Section id="synthese" title="Synthèse">
             <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
               <p className="font-serif text-xl leading-snug sm:text-2xl"><RichText text={r.summary.headline} /></p>
@@ -153,17 +172,87 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
             </Section>
           )}
 
+          {structure && (
+            <Section
+              id="arborescence"
+              title="Arborescence"
+              intro={`Dossier racine : ${structure.root}. Chaque chemin porte sa description, son état et ses constats.`}
+            >
+              <StructureTree structure={structure} />
+            </Section>
+          )}
+
           <Section id="constats" title="Constats" intro="Du plus grave au moins grave. Filtrez par gravité ou par catégorie.">
-            <FindingsList findings={r.findings} />
+            <FindingsList findings={r.findings} nodeLinks={nodeLinks} />
           </Section>
 
-          {prompts.length > 0 && (
-            <Section id="prompts" title="Prompts de nettoyage" intro="À coller dans votre session Claude, un à la fois, dans cet ordre.">
-              <ol className="space-y-4">
-                {prompts.map((p) => (
-                  <li key={p.order}><PromptCard prompt={p} /></li>
-                ))}
-              </ol>
+          {risks.length > 0 && (
+            <Section id="risques" title="Risques" intro="Ce qui peut arriver si rien ne change : probabilité × impact.">
+              <RisksView risks={risks} />
+            </Section>
+          )}
+
+          {hasSuggestions && (
+            <Section id="suggestions" title="Suggestions" intro="Les recommandations des constats, les prompts à coller et les prochaines étapes.">
+              <div className="space-y-12">
+                {r.findings.length > 0 && (
+                  <div id="recommandations" className="scroll-mt-20">
+                    <h3 className="font-serif text-lg tracking-tight">Recommandations</h3>
+                    <ol className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+                      {findingsBySeverity.map((f) => (
+                        <li key={f.id} className="grid gap-2 p-4 sm:grid-cols-[7.5rem_1fr]">
+                          <div className="flex items-start gap-2">
+                            <a href={`#constat-${f.id}`} className="font-mono text-xs text-muted hover:text-accent">{f.id}</a>
+                            <SeverityBadge severity={f.severity} />
+                          </div>
+                          <div className="min-w-0 text-sm leading-relaxed">
+                            <p className="font-medium"><RichText text={f.title} /></p>
+                            <p className="mt-1 text-muted"><RichText text={f.recommendation} /></p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {prompts.length > 0 && (
+                  <div id="prompts" className="scroll-mt-20">
+                    <h3 className="font-serif text-lg tracking-tight">Prompts de nettoyage</h3>
+                    <p className="mt-1 text-sm text-muted">À coller dans votre session Claude, un à la fois, dans cet ordre.</p>
+                    <ol className="mt-4 space-y-4">
+                      {prompts.map((p) => (
+                        <li key={p.order}><PromptCard prompt={p} /></li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {r.nextSteps.length > 0 && (
+                  <div id="suite" className="scroll-mt-20">
+                    <h3 className="font-serif text-lg tracking-tight">Prochaines étapes</h3>
+                    <ol className="mt-4 space-y-3">
+                      {r.nextSteps.map((s, i) => (
+                        <li key={i} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
+                          <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, "0")}</span>
+                          <span className="text-[15px] leading-relaxed"><RichText text={s} /></span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
+          {questions.length > 0 && (
+            <Section id="questions" title="Questions ouvertes" intro="Ce que l'audit n'a pas pu trancher à partir de l'espace de travail seul.">
+              <QuestionsView questions={questions} />
+            </Section>
+          )}
+
+          {notes.length > 0 && (
+            <Section id="notes" title="Notes" intro="Autres observations utiles : idées à partager, habitudes, outils.">
+              <NotesView notes={notes} />
             </Section>
           )}
 
@@ -174,19 +263,6 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
               intro="Les espaces de travail peuvent échanger leurs sorties par des dossiers partagés (OneDrive)."
             >
               <CollaborationView data={r.collaboration} />
-            </Section>
-          )}
-
-          {r.nextSteps.length > 0 && (
-            <Section id="suite" title="Prochaines étapes">
-              <ol className="space-y-3">
-                {r.nextSteps.map((s, i) => (
-                  <li key={i} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-                    <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, "0")}</span>
-                    <span className="text-[15px] leading-relaxed"><RichText text={s} /></span>
-                  </li>
-                ))}
-              </ol>
             </Section>
           )}
         </div>

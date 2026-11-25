@@ -1,10 +1,14 @@
-# Report schema (version 2)
+# Report schema (version 3)
 
 This file is the contract between the audit sessions and the app.
 The code of the contract is `src/lib/report/schema.ts` (zod). When the two files disagree, the code is correct.
 Change the two files in the same commit. Increase `REPORT_SCHEMA_VERSION` for a change that is not backward compatible.
 
-Versions: the app reads version 1 and version 2. Version 2 adds the section `collaboration` (section 7), and makes it required. A version 1 file has no `collaboration` and stays valid. Write new files in version 2.
+Versions: the app reads versions 1, 2 and 3. Write new files in version 3.
+
+- Version 2 adds the section `collaboration` (section 7), and makes it required.
+- Version 3 adds `structure` (section 8), `risks` (section 9), `openQuestions` (section 10) and `notes` (section 11). `structure`, `risks` and `openQuestions` are required from version 3. `notes` is optional.
+- A file of an earlier version stays valid. The page shows the sections that the file has.
 
 ## 1. Where the data goes
 
@@ -40,7 +44,7 @@ All text is French. All fields are required, except the fields with "optional".
 
 | Field | Type | Rule |
 |---|---|---|
-| `schemaVersion` | number | `2` for a new file. `1` is still accepted. |
+| `schemaVersion` | number | `3` for a new file. `1` and `2` are still accepted. |
 | `auditDate` | string | ISO date, `YYYY-MM-DD`. |
 | `source` | string | What the audit read. Example: "Archive `icm-workspace.zip` (Drive, 24/11/2026)". |
 | `summary.headline` | string | One sentence. The page shows it large. |
@@ -50,7 +54,13 @@ All text is French. All fields are required, except the fields with "optional".
 | `findings` | Finding[] | Section 5. Can be empty. |
 | `prompts` | Prompt[] | Section 6. Can be empty. |
 | `nextSteps` | string[] | Can be empty. The page numbers them. |
-| `collaboration` | object | Section 7. Required when `schemaVersion` is `2`. |
+| `collaboration` | object | Section 7. Required from `schemaVersion` 2. |
+| `structure` | object | Section 8. Required from `schemaVersion` 3. |
+| `risks` | Risk[] | Section 9. Required from `schemaVersion` 3. Can be empty. |
+| `openQuestions` | Question[] | Section 10. Required from `schemaVersion` 3. Can be empty. |
+| `notes` | Note[], optional | Section 11. |
+
+The suggestions of a report are in these fields: `findings[].recommendation`, `prompts`, `nextSteps` and `collaboration.opportunities`. Version 3 adds no other field for suggestions.
 
 ## 4. Metrics
 
@@ -141,7 +151,73 @@ The 5 general safeguards:
 4. No secret and no personal data in a shared folder.
 5. Versioned names (`AAAA-MM-JJ_…`): add a file, never overwrite a file.
 
-## 8. Inline format
+## 8. Folder structure (`structure`)
+
+The folder tree of the workspace. The page shows it as a tree that the reader can expand, collapse and filter by path.
+
+| Field | Type | Rule |
+|---|---|---|
+| `root` | string | The name of the root folder of the archive. Example: `espace-ester`. |
+| `summary` | string | 2 to 4 sentences: how the tree is organised, and its main fault. |
+| `nodes` | Node[] | 1 or more. |
+
+Node:
+
+| Field | Type | Rule |
+|---|---|---|
+| `path` | string | Relative to the root, with `/` separators. No `/` at the start or at the end. `""` is the root. Unique in the report. |
+| `kind` | enum | `dossier` or `fichier`. |
+| `description` | string | What the path holds and what it is for. 1 to 2 sentences. |
+| `status` | enum | `ok`, `attention`, `problème`. Write the accent. |
+| `findingIds` | string[] | The ids of the findings about this path. Each id must be the id of a finding. Can be empty. |
+| `sizeBytes` | integer, optional | Size, in bytes. |
+| `chars` | integer, optional | Characters, for a Markdown file. |
+
+Rules for the nodes:
+
+- Give each folder of the workspace one node, to every depth.
+- Give a node to each file that has a role: a router (`CLAUDE.md`, `CONTEXT.md`), a stage contract, a reference, a LISEZ-MOI, a prompt, a script, and each file of a finding. Do not give a node to each output file of a run: one node for its folder is enough.
+- Skip `.git/`, `node_modules/`, caches and system files (`.DS_Store`, `Thumbs.db`).
+- Each parent folder of a node is also a node, with `kind` `dossier`. The seed check refuses a node whose parent has no node.
+- Never put the value of a secret in a description. Name the file and the kind of secret.
+
+## 9. Risk
+
+What can go wrong if nothing changes. A finding is a fault seen now. A risk is a consequence.
+
+| Field | Type | Rule |
+|---|---|---|
+| `id` | string | `R` and 1 to 3 digits. Example: `R1`. Unique in the report. |
+| `title` | string | One line. |
+| `description` | string | What can occur, and how. |
+| `likelihood` | enum | `faible`, `moyen`, `élevé`. |
+| `impact` | enum | `faible`, `moyen`, `élevé`. |
+| `mitigation` | string | What prevents the risk. |
+| `findingIds` | string[] | The ids of the related findings. Each id must be the id of a finding. Can be empty. |
+
+The page shows the risks in a 3 × 3 grid of likelihood × impact, and in a list sorted by likelihood × impact.
+
+## 10. Open question
+
+What the audit could not decide from the workspace alone.
+
+| Field | Type | Rule |
+|---|---|---|
+| `id` | string | `Q` and 1 to 3 digits. Example: `Q1`. Unique in the report. |
+| `question` | string | One sentence. |
+| `context` | string | Why it matters, and what the audit saw. |
+| `askTo` | enum | `employé`, `J` or `équipe`. Write the accent. The page groups the questions by this field. |
+
+## 11. Note (`notes`, optional)
+
+Anything else of note that has no other field: a good idea to share with the team, an odd usage pattern, a tool, a habit.
+
+| Field | Type | Rule |
+|---|---|---|
+| `title` | string | One line. |
+| `detail` | string | The note. |
+
+## 12. Inline format
 
 In all text fields except `prompt`, the page shows two inline formats:
 
@@ -150,7 +226,7 @@ In all text fields except `prompt`, the page shows two inline formats:
 
 The page shows no other Markdown and no HTML. Line breaks in a text field are not kept: use more list items.
 
-## 9. Access
+## 13. Access
 
 - An employee signs in when their email is in `EMPLOYEE_EMAILS`. They read only their own report, and only when `status` is `published`.
 - An admin (email in `ADMIN_EMAILS`) reads all reports, drafts too, and the index `/admin`.

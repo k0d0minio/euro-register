@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { ReportPrompt } from "@/lib/report/schema";
 import { RichText } from "@/components/ui/rich-text";
 
-async function copyText(text: string): Promise<boolean> {
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;

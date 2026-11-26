@@ -1,15 +1,16 @@
-# Report schema (version 4)
+# Report schema (version 5)
 
 This file is the contract between the audit sessions and the app.
 The code of the contract is `src/lib/report/schema.ts` (zod). When the two files disagree, the code is correct.
 Change the two files in the same commit. Increase `REPORT_SCHEMA_VERSION` for a change that is not backward compatible.
 
-Versions: the app reads versions 1, 2, 3 and 4. Write new files in version 4.
+Versions: the app reads versions 1 to 5. Write new files in version 5. The seed (`pnpm seed`) accepts only version 5.
 
 - Version 2 adds the section `collaboration` (section 7), and makes it required.
 - Version 3 adds `structure` (section 8), `risks` (section 9), `openQuestions` (section 10) and `notes` (section 11). `structure`, `risks` and `openQuestions` are required from version 3. `notes` is optional.
 - Version 4 applies J's audit standard of 2026-11-26. It changes the severities to 3 levels (section 5), adds `scores` (section 13), `collaboration.teamOpportunities` (section 7), and limits the actions (section 3). `scores` and `teamOpportunities` are required from version 4.
-- A file of an earlier version stays valid. The page shows the sections that the file has.
+- Version 5 adds `simple` (section 15), the simple view that the employee reads first (J, 2026-11-26). `simple` is required from version 5.
+- The seed refuses a file of version 1 to 4. A report of an earlier version that is already in the database stays valid: the page shows the sections that it has.
 
 ## 1. Where the data goes
 
@@ -19,7 +20,7 @@ Versions: the app reads versions 1, 2, 3 and 4. Write new files in version 4.
   `pnpm seed ~/euro-register-data/rapports --check`
 - Load the files into Neon (needs `DATABASE_URL` in `.env`):
   `pnpm seed ~/euro-register-data/rapports`
-- The seed script refuses a path inside the repo. The only exception is `fixtures/`, which has one invented example: `fixtures/exemple.json`.
+- The seed script refuses a path inside the repo. The only exception is `fixtures/`, which has one invented example: `fixtures/exemple.json` (version 5). `fixtures/anciennes/` keeps a version 3 example, for the page only: the seed refuses it.
 - The seed script is an upsert. The key is `employee.slug`. A second load of the same slug replaces the report.
 - If one file is not valid, the script writes nothing.
 - Emails: the database has no employee email. The sign-in emails are in the env var `EMPLOYEE_EMAILS` only (`slug=email` pairs, comma-separated). `pnpm seed <folder> --print-env` prints that line from the files, and writes nothing.
@@ -258,3 +259,29 @@ The page shows the scores in the section "Scores", after "Mesures".
 - An admin (email in `ADMIN_EMAILS`) reads all reports, drafts too, and the index `/admin`.
 - Each signed-in person reads the deck `/presentation` and the team page `/equipe`. The team page shows only published reports, also to an admin.
 - Only the employee of a published report saves answers to its `employé` questions.
+
+## 15. Simple view (`simple`, version 5)
+
+The employees are not technical. The page shows `simple` first, in plain French with no id or code. The full report (sections 3 to 13) is under a closed section « Détails techniques ».
+
+```jsonc
+"simple": {
+  "headline": "1 or 2 sentences",
+  "strengths": ["short line", "..."],
+  "actions": [
+    { "order": 1, "title": "…", "why": "…", "prompt": "…", "findingIds": ["C1"] }
+  ]
+}
+```
+
+| Field | Type | Rule |
+|---|---|---|
+| `headline` | string | 1 or 2 sentences. 220 characters at most. |
+| `strengths` | string[] | 1 to 3 items. 120 characters at most each. |
+| `actions` | Action[] | 1 to 3 items. `order` is 1, 2, 3 with no gap. |
+| `actions[].title` | string | What to do, in plain words. 70 characters at most. |
+| `actions[].why` | string | One sentence. 200 characters at most. The page shows « Pourquoi : <why> ». |
+| `actions[].prompt` | string | The text that the employee pastes into Claude. The button « Copier le message pour Claude » copies it. |
+| `actions[].findingIds` | string[] | The findings that the action corrects. Each id must exist in `findings`. The page does not show them. |
+
+The page, top to bottom: the headline, « Ce qui marche bien », « À faire » (one card for each action), « Tes questions » (the `employé` questions), « Détails techniques » (closed).

@@ -15,6 +15,7 @@ import { StructureTree } from "./structure-tree";
 import { Toc, TocMobile, type TocItem } from "./toc";
 import type { NodeLinks } from "./findings-list";
 import { SeverityBadge, StatusBadge } from "@/components/ui/badges";
+import { SimpleView } from "./simple-view";
 
 /**
  * Who reads the page. `admin` sees every question and the answers. `employee` answers
@@ -38,11 +39,11 @@ type Props = {
 
 const rank: Record<Severity, number> = { urgent: 0, important: 1, souhaitable: 2 };
 
-function Section({ id, title, children, intro }: { id: string; title: string; intro?: string; children: React.ReactNode }) {
+function Section({ id, title, children, intro, big = false }: { id: string; title: string; intro?: string; big?: boolean; children: React.ReactNode }) {
   return (
     <section id={id} className="scroll-mt-20">
-      <h2 className="font-serif text-2xl tracking-tight">{title}</h2>
-      {intro && <p className="mt-1 text-sm text-muted">{intro}</p>}
+      <h2 className={`font-serif tracking-tight ${big ? "text-2xl sm:text-3xl" : "text-2xl"}`}>{title}</h2>
+      {intro && <p className={`mt-1 text-muted ${big ? "text-base" : "text-sm"}`}>{intro}</p>}
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -87,6 +88,8 @@ export function ReportView({ employee, status, updatedAt, content: r, audience, 
   const scores = r.scores ?? [];
   const teamOpportunityCount = r.collaboration?.teamOpportunities?.length ?? 0;
   const notes = r.notes ?? [];
+  /** Version 5: the simple view first, the full report folded under « Détails techniques ». */
+  const simple = r.simple;
 
   // Finding → node of the tree: the node that names the finding, else the node of its path.
   const nodeLinks: NodeLinks = {};
@@ -124,10 +127,204 @@ export function ReportView({ employee, status, updatedAt, content: r, audience, 
         ...(r.nextSteps.length > 0 ? [{ id: "suite", label: "Prochaines étapes", count: r.nextSteps.length }] : []),
       ],
     });
-  if (questions.length > 0)
+  if (questions.length > 0 && !simple)
     toc.push({ id: "questions", label: isEmployee ? "Vos réponses" : "Questions ouvertes", count: questions.length });
   if (notes.length > 0) toc.push({ id: "notes", label: "Notes", count: notes.length });
   if (r.collaboration) toc.push({ id: "communication", label: "Communication" });
+
+  const questionsBlock = (
+    <>
+      {questions.length > 0 &&
+        (audience.mode === "employee" ? (
+          <Section
+            id="questions"
+            title={simple ? "Tes questions" : "Vos réponses"}
+            big={!!simple}
+            intro={
+              simple
+                ? "L'audit n'a pas pu tout comprendre seul. Une réponse courte suffit. Tu peux la changer plus tard."
+                : "L'audit n'a pas pu trancher ces points à partir de l'espace de travail seul. Une réponse courte suffit. Vous pouvez la modifier plus tard."
+            }
+          >
+            <AnswersForm
+              slug={audience.slug}
+              questions={questions}
+              answers={Object.fromEntries(Object.entries(audience.answers).map(([id, a]) => [id, a.answer]))}
+              maxChars={ANSWER_MAX_CHARS}
+              showIds={!simple}
+            />
+          </Section>
+        ) : (
+          <Section id="questions" title={simple ? "Tes questions" : "Questions ouvertes"} big={!!simple} intro="Ce que l'audit n'a pas pu trancher à partir de l'espace de travail seul.">
+            <QuestionsView questions={questions} answers={audience.mode === "admin" ? audience.answers : {}} />
+          </Section>
+        ))}
+      {isEmployee && teamQuestionCount > 0 && (
+        <p className={`${simple ? "mt-6" : "-mt-10"} text-sm text-muted`}>
+          {teamQuestionCount} question{teamQuestionCount > 1 ? "s" : ""} pour l&apos;équipe :{" "}
+          <Link href={`${teamHref}#questions`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
+        </p>
+      )}
+    </>
+  );
+
+  const fullReport = (
+    <div className="grid gap-12 lg:grid-cols-[200px_1fr]">
+      <nav aria-label="Sommaire" className="hidden lg:block">
+        <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pb-4">
+          <Toc items={toc} />
+        </div>
+      </nav>
+
+      <div className="min-w-0 space-y-16">
+        <TocMobile items={toc} />
+
+        <Section id="synthese" title="Synthèse">
+          <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <p className="font-serif text-xl leading-snug sm:text-2xl"><RichText text={r.summary.headline} /></p>
+            <ul className="mt-5 space-y-2.5 text-[15px] leading-relaxed">
+              {r.summary.points.map((p, i) => (
+                <li key={i} className="flex gap-3">
+                  <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" />
+                  <span><RichText text={p} /></span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Section>
+
+        <Section id="mesures" title="Mesures" intro="Estimation : 1 token ≈ 3,5 caractères de texte français.">
+          <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {stats.map((s) => (
+              <div key={s.label} className="rounded-xl border border-line bg-surface p-4">
+                <dt className="text-xs text-muted">{s.label}</dt>
+                <dd className="mt-1 font-serif text-2xl tabular-nums tracking-tight">{s.value}</dd>
+                {s.note && <dd className="mt-1 text-xs text-muted"><RichText text={s.note} /></dd>}
+              </div>
+            ))}
+          </dl>
+        </Section>
+
+        {scores.length > 0 && (
+          <Section id="scores" title="Scores" intro="Une note de 1 à 5 par catégorie. 5 = aucun défaut.">
+            <ScoresView scores={scores} />
+          </Section>
+        )}
+
+        {r.strengths.length > 0 && (
+          <Section id="points-forts" title="Points forts">
+            <ul className="grid gap-3 md:grid-cols-2">
+              {r.strengths.map((s, i) => (
+                <li key={i} className="rounded-xl border border-line bg-surface p-5">
+                  <p className="flex items-start gap-2.5 font-semibold">
+                    <span aria-hidden className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-accent-soft text-xs text-accent">✓</span>
+                    <RichText text={s.title} />
+                  </p>
+                  {s.detail && <p className="mt-2 pl-7.5 text-sm leading-relaxed text-muted"><RichText text={s.detail} /></p>}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {structure && (
+          <Section
+            id="arborescence"
+            title="Arborescence"
+            intro={`Dossier racine : ${structure.root}. Chaque chemin porte sa description, son état et ses constats.`}
+          >
+            <StructureTree structure={structure} />
+          </Section>
+        )}
+
+        <Section id="constats" title="Constats" intro="Du plus grave au moins grave. Filtrez par gravité ou par catégorie.">
+          <FindingsList findings={r.findings} nodeLinks={nodeLinks} />
+        </Section>
+
+        {risks.length > 0 && (
+          <Section id="risques" title="Risques" intro="Ce qui peut arriver si rien ne change : probabilité × impact.">
+            <RisksView risks={risks} />
+          </Section>
+        )}
+
+        {hasSuggestions && (
+          <Section id="suggestions" title="Suggestions" intro="Les recommandations des constats, les prompts à coller et les prochaines étapes.">
+            <div className="space-y-12">
+              {r.findings.length > 0 && (
+                <div id="recommandations" className="scroll-mt-20">
+                  <h3 className="font-serif text-lg tracking-tight">Recommandations</h3>
+                  <ol className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+                    {findingsBySeverity.map((f) => (
+                      <li key={f.id} className="grid gap-2 p-4 sm:grid-cols-[7.5rem_1fr]">
+                        <div className="flex items-start gap-2">
+                          <a href={`#constat-${f.id}`} className="font-mono text-xs text-muted hover:text-accent">{f.id}</a>
+                          <SeverityBadge severity={f.severity} />
+                        </div>
+                        <div className="min-w-0 text-sm leading-relaxed">
+                          <p className="font-medium"><RichText text={f.title} /></p>
+                          <p className="mt-1 text-muted"><RichText text={f.recommendation} /></p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {prompts.length > 0 && (
+                <div id="prompts" className="scroll-mt-20">
+                  <h3 className="font-serif text-lg tracking-tight">Prompts de nettoyage</h3>
+                  <p className="mt-1 text-sm text-muted">À coller dans votre session Claude, un à la fois, dans cet ordre.</p>
+                  <ol className="mt-4 space-y-4">
+                    {prompts.map((p) => (
+                      <li key={p.order}><PromptCard prompt={p} /></li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {r.nextSteps.length > 0 && (
+                <div id="suite" className="scroll-mt-20">
+                  <h3 className="font-serif text-lg tracking-tight">Prochaines étapes</h3>
+                  <ol className="mt-4 space-y-3">
+                    {r.nextSteps.map((s, i) => (
+                      <li key={i} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
+                        <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, "0")}</span>
+                        <span className="text-[15px] leading-relaxed"><RichText text={s} /></span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {!simple && questionsBlock}
+
+        {notes.length > 0 && (
+          <Section id="notes" title="Notes" intro="Autres observations utiles : idées à partager, habitudes, outils.">
+            <NotesView notes={notes} />
+          </Section>
+        )}
+
+        {r.collaboration && (
+          <Section
+            id="communication"
+            title="Communication entre espaces de travail"
+            intro="Les espaces de travail peuvent échanger leurs sorties par des dossiers partagés (OneDrive)."
+          >
+            <CollaborationView data={r.collaboration} />
+            {teamOpportunityCount > 0 && (
+              <p className="mt-6 text-sm text-muted">
+                {teamOpportunityCount} autre{teamOpportunityCount > 1 ? "s" : ""} opportunité{teamOpportunityCount > 1 ? "s" : ""} :{" "}
+                <Link href={`${teamHref}#opportunites`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
+              </p>
+            )}
+          </Section>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
@@ -140,190 +337,30 @@ export function ReportView({ employee, status, updatedAt, content: r, audience, 
           <StatusBadge status={status} />
           <span>Audit du {formatDate(r.auditDate)}</span>
           {updatedAt && <span>· mis à jour le {formatDate(updatedAt)}</span>}
-          <span>· schéma v{r.schemaVersion}</span>
+          {!simple && <span>· schéma v{r.schemaVersion}</span>}
         </div>
-        <p className="mt-2 text-xs text-muted"><RichText text={r.source} /></p>
+        {!simple && <p className="mt-2 text-xs text-muted"><RichText text={r.source} /></p>}
       </Reveal>
 
-      <div className="grid gap-12 lg:grid-cols-[200px_1fr]">
-        <nav aria-label="Sommaire" className="hidden lg:block">
-          <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pb-4">
-            <Toc items={toc} />
+      {simple ? (
+        <>
+          <div className="max-w-3xl space-y-16">
+            <SimpleView simple={simple} />
+            {questionsBlock}
           </div>
-        </nav>
-
-        <div className="min-w-0 space-y-16">
-          <TocMobile items={toc} />
-
-          <Section id="synthese" title="Synthèse">
-            <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
-              <p className="font-serif text-xl leading-snug sm:text-2xl"><RichText text={r.summary.headline} /></p>
-              <ul className="mt-5 space-y-2.5 text-[15px] leading-relaxed">
-                {r.summary.points.map((p, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" />
-                    <span><RichText text={p} /></span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Section>
-
-          <Section id="mesures" title="Mesures" intro="Estimation : 1 token ≈ 3,5 caractères de texte français.">
-            <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {stats.map((s) => (
-                <div key={s.label} className="rounded-xl border border-line bg-surface p-4">
-                  <dt className="text-xs text-muted">{s.label}</dt>
-                  <dd className="mt-1 font-serif text-2xl tabular-nums tracking-tight">{s.value}</dd>
-                  {s.note && <dd className="mt-1 text-xs text-muted"><RichText text={s.note} /></dd>}
-                </div>
-              ))}
-            </dl>
-          </Section>
-
-          {scores.length > 0 && (
-            <Section id="scores" title="Scores" intro="Une note de 1 à 5 par catégorie. 5 = aucun défaut.">
-              <ScoresView scores={scores} />
-            </Section>
-          )}
-
-          {r.strengths.length > 0 && (
-            <Section id="points-forts" title="Points forts">
-              <ul className="grid gap-3 md:grid-cols-2">
-                {r.strengths.map((s, i) => (
-                  <li key={i} className="rounded-xl border border-line bg-surface p-5">
-                    <p className="flex items-start gap-2.5 font-semibold">
-                      <span aria-hidden className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-accent-soft text-xs text-accent">✓</span>
-                      <RichText text={s.title} />
-                    </p>
-                    {s.detail && <p className="mt-2 pl-7.5 text-sm leading-relaxed text-muted"><RichText text={s.detail} /></p>}
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {structure && (
-            <Section
-              id="arborescence"
-              title="Arborescence"
-              intro={`Dossier racine : ${structure.root}. Chaque chemin porte sa description, son état et ses constats.`}
-            >
-              <StructureTree structure={structure} />
-            </Section>
-          )}
-
-          <Section id="constats" title="Constats" intro="Du plus grave au moins grave. Filtrez par gravité ou par catégorie.">
-            <FindingsList findings={r.findings} nodeLinks={nodeLinks} />
-          </Section>
-
-          {risks.length > 0 && (
-            <Section id="risques" title="Risques" intro="Ce qui peut arriver si rien ne change : probabilité × impact.">
-              <RisksView risks={risks} />
-            </Section>
-          )}
-
-          {hasSuggestions && (
-            <Section id="suggestions" title="Suggestions" intro="Les recommandations des constats, les prompts à coller et les prochaines étapes.">
-              <div className="space-y-12">
-                {r.findings.length > 0 && (
-                  <div id="recommandations" className="scroll-mt-20">
-                    <h3 className="font-serif text-lg tracking-tight">Recommandations</h3>
-                    <ol className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
-                      {findingsBySeverity.map((f) => (
-                        <li key={f.id} className="grid gap-2 p-4 sm:grid-cols-[7.5rem_1fr]">
-                          <div className="flex items-start gap-2">
-                            <a href={`#constat-${f.id}`} className="font-mono text-xs text-muted hover:text-accent">{f.id}</a>
-                            <SeverityBadge severity={f.severity} />
-                          </div>
-                          <div className="min-w-0 text-sm leading-relaxed">
-                            <p className="font-medium"><RichText text={f.title} /></p>
-                            <p className="mt-1 text-muted"><RichText text={f.recommendation} /></p>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {prompts.length > 0 && (
-                  <div id="prompts" className="scroll-mt-20">
-                    <h3 className="font-serif text-lg tracking-tight">Prompts de nettoyage</h3>
-                    <p className="mt-1 text-sm text-muted">À coller dans votre session Claude, un à la fois, dans cet ordre.</p>
-                    <ol className="mt-4 space-y-4">
-                      {prompts.map((p) => (
-                        <li key={p.order}><PromptCard prompt={p} /></li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {r.nextSteps.length > 0 && (
-                  <div id="suite" className="scroll-mt-20">
-                    <h3 className="font-serif text-lg tracking-tight">Prochaines étapes</h3>
-                    <ol className="mt-4 space-y-3">
-                      {r.nextSteps.map((s, i) => (
-                        <li key={i} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-                          <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, "0")}</span>
-                          <span className="text-[15px] leading-relaxed"><RichText text={s} /></span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-              </div>
-            </Section>
-          )}
-
-          {questions.length > 0 &&
-            (audience.mode === "employee" ? (
-              <Section
-                id="questions"
-                title="Vos réponses"
-                intro="L'audit n'a pas pu trancher ces points à partir de l'espace de travail seul. Une réponse courte suffit. Vous pouvez la modifier plus tard."
-              >
-                <AnswersForm
-                  slug={audience.slug}
-                  questions={questions}
-                  answers={Object.fromEntries(Object.entries(audience.answers).map(([id, a]) => [id, a.answer]))}
-                  maxChars={ANSWER_MAX_CHARS}
-                />
-              </Section>
-            ) : (
-              <Section id="questions" title="Questions ouvertes" intro="Ce que l'audit n'a pas pu trancher à partir de l'espace de travail seul.">
-                <QuestionsView questions={questions} answers={audience.mode === "admin" ? audience.answers : {}} />
-              </Section>
-            ))}
-          {isEmployee && teamQuestionCount > 0 && (
-            <p className="-mt-10 text-sm text-muted">
-              {teamQuestionCount} question{teamQuestionCount > 1 ? "s" : ""} pour l&apos;équipe :{" "}
-              <Link href={`${teamHref}#questions`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
-            </p>
-          )}
-
-          {notes.length > 0 && (
-            <Section id="notes" title="Notes" intro="Autres observations utiles : idées à partager, habitudes, outils.">
-              <NotesView notes={notes} />
-            </Section>
-          )}
-
-          {r.collaboration && (
-            <Section
-              id="communication"
-              title="Communication entre espaces de travail"
-              intro="Les espaces de travail peuvent échanger leurs sorties par des dossiers partagés (OneDrive)."
-            >
-              <CollaborationView data={r.collaboration} />
-              {teamOpportunityCount > 0 && (
-                <p className="mt-6 text-sm text-muted">
-                  {teamOpportunityCount} autre{teamOpportunityCount > 1 ? "s" : ""} opportunité{teamOpportunityCount > 1 ? "s" : ""} :{" "}
-                  <Link href={`${teamHref}#opportunites`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
-                </p>
-              )}
-            </Section>
-          )}
-        </div>
-      </div>
+          <details className="group mt-20 border-t border-line pt-8">
+            <summary className="flex cursor-pointer list-none items-center gap-3 font-serif text-2xl tracking-tight sm:text-3xl [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="text-lg text-muted transition-transform group-open:rotate-90">▸</span>
+              Détails techniques
+            </summary>
+            <p className="mt-2 pl-8 text-base text-muted">Le rapport complet de l&apos;audit. Tu n&apos;as pas besoin de le lire pour faire les actions.</p>
+            <p className="mt-4 pl-8 text-xs text-muted">Schéma v{r.schemaVersion} · <RichText text={r.source} /></p>
+            <div className="mt-10">{fullReport}</div>
+          </details>
+        </>
+      ) : (
+        fullReport
+      )}
     </div>
   );
 }

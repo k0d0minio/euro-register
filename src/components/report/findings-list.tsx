@@ -2,11 +2,12 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORIES, SEVERITIES, type Category, type Finding, type Severity } from "@/lib/report/schema";
+import { CATEGORIES, SEVERITIES, toSeverity, type Category, type Finding, type Severity } from "@/lib/report/schema";
 import { CategoryTag, SeverityBadge, severityColors, severityLabel } from "@/components/ui/badges";
 import { RichText } from "@/components/ui/rich-text";
 
-const rank: Record<Severity, number> = { critique: 0, élevé: 1, moyen: 2, faible: 3 };
+const rank: Record<Severity, number> = { urgent: 0, important: 1, souhaitable: 2 };
+const level = (f: Finding) => toSeverity(f.severity);
 
 /** For each finding id: the node of the folder tree that it is about. */
 export type NodeLinks = Record<string, { anchor: string; path: string }>;
@@ -17,11 +18,11 @@ export function FindingsList({ findings, nodeLinks = {} }: { findings: Finding[]
   const reduce = useReducedMotion();
 
   const sorted = useMemo(
-    () => [...findings].sort((a, b) => rank[a.severity] - rank[b.severity]),
+    () => [...findings].sort((a, b) => rank[level(a)] - rank[level(b)]),
     [findings],
   );
   const visible = sorted.filter(
-    (f) => (severities.size === 0 || severities.has(f.severity)) && (!category || f.category === category),
+    (f) => (severities.size === 0 || severities.has(level(f))) && (!category || f.category === category),
   );
   // A link to "#constat-X" shows that finding, also when a filter hides it.
   useEffect(() => {
@@ -30,7 +31,7 @@ export function FindingsList({ findings, nodeLinks = {} }: { findings: Finding[]
       if (!m) return;
       const f = findings.find((x) => x.id === decodeURIComponent(m[1]));
       if (!f) return;
-      setSeverities((prev) => (prev.size === 0 || prev.has(f.severity) ? prev : new Set()));
+      setSeverities((prev) => (prev.size === 0 || prev.has(level(f)) ? prev : new Set()));
       setCategory((prev) => (prev === null || prev === f.category ? prev : null));
       window.setTimeout(() => document.getElementById(`constat-${f.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 250);
     }
@@ -42,7 +43,7 @@ export function FindingsList({ findings, nodeLinks = {} }: { findings: Finding[]
     };
   }, [findings]);
 
-  const countBy = (s: Severity) => findings.filter((f) => f.severity === s).length;
+  const countBy = (s: Severity) => findings.filter((f) => level(f) === s).length;
   const toggle = (s: Severity) =>
     setSeverities((prev) => {
       const next = new Set(prev);

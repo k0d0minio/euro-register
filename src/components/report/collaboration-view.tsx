@@ -1,4 +1,4 @@
-import type { Collaboration, Effort } from "@/lib/report/schema";
+import type { Collaboration, CollaborationOpportunity, Effort } from "@/lib/report/schema";
 import { RichText } from "@/components/ui/rich-text";
 import { PromptCard } from "./prompt-card";
 
@@ -77,23 +77,10 @@ export function CollaborationView({ data: c }: { data: Collaboration }) {
 
       {c.opportunities.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Opportunités</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{c.opportunities.length === 1 ? "Opportunité" : "Opportunités"}</h3>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {c.opportunities.map((o, i) => (
-              <li key={i} className="flex flex-col rounded-xl border border-line bg-surface p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-muted">Avec <span className="font-medium text-ink">{o.counterpart}</span></span>
-                  <span style={effortStyle[o.effort]} className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold">
-                    {effortStyle[o.effort].label}
-                  </span>
-                </div>
-                <p className="mt-2 font-semibold leading-snug"><RichText text={o.idea} /></p>
-                <p className="mt-2 text-sm leading-relaxed text-muted"><RichText text={o.value} /></p>
-                <p className="mt-3 border-t border-line pt-3 text-sm">
-                  <span className="text-xs text-muted">À partager : </span>
-                  <RichText text={o.whatToShare} />
-                </p>
-              </li>
+              <li key={i} className="flex"><OpportunityCard opportunity={o} /></li>
             ))}
           </ul>
         </div>
@@ -123,6 +110,26 @@ export function CollaborationView({ data: c }: { data: Collaboration }) {
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+/** One opportunity. The report and the team page show the same card. */
+export function OpportunityCard({ opportunity: o }: { opportunity: CollaborationOpportunity }) {
+  return (
+    <div className="flex w-full flex-col rounded-xl border border-line bg-surface p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-muted">Avec <span className="font-medium text-ink">{o.counterpart}</span></span>
+        <span style={effortStyle[o.effort]} className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold">
+          {effortStyle[o.effort].label}
+        </span>
+      </div>
+      <p className="mt-2 font-semibold leading-snug"><RichText text={o.idea} /></p>
+      <p className="mt-2 text-sm leading-relaxed text-muted"><RichText text={o.value} /></p>
+      <p className="mt-3 border-t border-line pt-3 text-sm">
+        <span className="text-xs text-muted">À partager : </span>
+        <RichText text={o.whatToShare} />
+      </p>
     </div>
   );
 }

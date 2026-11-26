@@ -5,13 +5,20 @@ import { SiteHeader } from "@/components/ui/site-header";
 
 export const metadata = { title: "Aperçu du rapport (fictif)" };
 
+/** The admin view of the invented report: every question, no database. */
 export default function PreviewReportPage() {
   const data = seedFileSchema.parse(fixture);
   return (
     <>
-      <SiteHeader nav={[{ href: "/apercu/presentation", label: "Présentation" }]} note="Aperçu · données fictives" />
+      <SiteHeader
+        nav={[
+          { href: "/apercu/equipe", label: "Page équipe" },
+          { href: "/apercu/presentation", label: "Présentation" },
+        ]}
+        note="Aperçu · données fictives"
+      />
       <main className="flex-1">
-        <ReportView employee={data.employee} status={data.status} content={data.report} />
+        <ReportView employee={data.employee} status={data.status} content={data.report} audience={{ mode: "preview" }} teamHref="/apercu/equipe" />
       </main>
     </>
   );

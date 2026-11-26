@@ -1,13 +1,14 @@
-# Report schema (version 3)
+# Report schema (version 4)
 
 This file is the contract between the audit sessions and the app.
 The code of the contract is `src/lib/report/schema.ts` (zod). When the two files disagree, the code is correct.
 Change the two files in the same commit. Increase `REPORT_SCHEMA_VERSION` for a change that is not backward compatible.
 
-Versions: the app reads versions 1, 2 and 3. Write new files in version 3.
+Versions: the app reads versions 1, 2, 3 and 4. Write new files in version 4.
 
 - Version 2 adds the section `collaboration` (section 7), and makes it required.
 - Version 3 adds `structure` (section 8), `risks` (section 9), `openQuestions` (section 10) and `notes` (section 11). `structure`, `risks` and `openQuestions` are required from version 3. `notes` is optional.
+- Version 4 applies J's audit standard of 2026-11-26. It changes the severities to 3 levels (section 5), adds `scores` (section 13), `collaboration.teamOpportunities` (section 7), and limits the actions (section 3). `scores` and `teamOpportunities` are required from version 4.
 - A file of an earlier version stays valid. The page shows the sections that the file has.
 
 ## 1. Where the data goes
@@ -44,23 +45,26 @@ All text is French. All fields are required, except the fields with "optional".
 
 | Field | Type | Rule |
 |---|---|---|
-| `schemaVersion` | number | `3` for a new file. `1` and `2` are still accepted. |
+| `schemaVersion` | number | `4` for a new file. `1`, `2` and `3` are still accepted. |
 | `auditDate` | string | ISO date, `YYYY-MM-DD`. |
 | `source` | string | What the audit read. Example: "Archive `icm-workspace.zip` (Drive, 24/11/2026)". |
 | `summary.headline` | string | One sentence. The page shows it large. |
 | `summary.points` | string[] | 1 or more points. Short sentences. |
 | `metrics` | object | Section 4. |
-| `strengths` | `{title, detail?}[]` | What the employee does well. Can be empty. |
-| `findings` | Finding[] | Section 5. Can be empty. |
-| `prompts` | Prompt[] | Section 6. Can be empty. |
-| `nextSteps` | string[] | Can be empty. The page numbers them. |
+| `strengths` | `{title, detail?}[]` | What the employee does well. Can be empty. 3 at most from version 4. |
+| `findings` | Finding[] | Section 5. Can be empty. No limit: the list is the record of the audit. |
+| `prompts` | Prompt[] | Section 6. Can be empty. 5 at most from version 4, in the order of priority. |
+| `nextSteps` | string[] | Can be empty. The page numbers them. 5 at most from version 4. |
 | `collaboration` | object | Section 7. Required from `schemaVersion` 2. |
 | `structure` | object | Section 8. Required from `schemaVersion` 3. |
 | `risks` | Risk[] | Section 9. Required from `schemaVersion` 3. Can be empty. |
 | `openQuestions` | Question[] | Section 10. Required from `schemaVersion` 3. Can be empty. |
 | `notes` | Note[], optional | Section 11. |
+| `scores` | Score[] | Section 13. Required from `schemaVersion` 4. |
 
-The suggestions of a report are in these fields: `findings[].recommendation`, `prompts`, `nextSteps` and `collaboration.opportunities`. Version 3 adds no other field for suggestions.
+The suggestions of a report are in these fields: `findings[].recommendation`, `prompts`, `nextSteps` and `collaboration.opportunities`.
+
+Limits of version 4 (the seed check refuses a file that breaks one): `strengths` 3 at most, `prompts` 5 at most, `nextSteps` 5 at most, `collaboration.opportunities` exactly 1. Drop the extra actions; do not move them to another field.
 
 ## 4. Metrics
 
@@ -82,7 +86,7 @@ The suggestions of a report are in these fields: `findings[].recommendation`, `p
 | Field | Type | Rule |
 |---|---|---|
 | `id` | string | 1 to 3 capital letters, then 1 to 3 digits. Example: `C1`. Unique in the report. |
-| `severity` | enum | `critique`, `élevé`, `moyen`, `faible`. Write the accents. |
+| `severity` | enum | Version 4: `urgent`, `important`, `souhaitable`. Versions 1 to 3: `critique`, `élevé`, `moyen`, `faible` (write the accents). The seed check refuses a value of the other set. |
 | `category` | enum | `conventions ICM`, `efficacité tokens`, `cohérence`, `sécurité`. Write the accents and the spaces. |
 | `title` | string | One line. |
 | `path` | string, optional | The main file or folder, relative to the workspace root. Omit it for a finding about the full workspace. |
@@ -91,12 +95,13 @@ The suggestions of a report are in these fields: `findings[].recommendation`, `p
 
 The page sorts the findings by severity. The order in the file is not important.
 
-How to select a severity:
+How to select a severity (version 4):
 
-- `critique`: a secret, personal data or a risk of data loss. Correct it before all other work.
-- `élevé`: a fault that gives wrong output, or a large cost in tokens at each turn.
-- `moyen`: a break of an ICM rule with a small effect today.
-- `faible`: form, tidiness.
+- `urgent`: a secret, personal data that leaves the workspace, or a risk of data loss. Correct it before all other work.
+- `important`: a fault that gives wrong output, or a session that already failed because of it.
+- `souhaitable`: a break of an ICM rule with a small effect today, form, tidiness. A token-cost finding is `souhaitable`, unless the workspace shows a session that failed because of it (then `important`).
+
+The page shows the severities of versions 1 to 3 with the 3 levels: `critique` → urgent, `élevé` → important, `moyen` and `faible` → souhaitable.
 
 ## 6. Prompt
 
@@ -117,9 +122,10 @@ The work computers can share folders (OneDrive), and each workspace can write a 
 |---|---|---|
 | `summary` | string | 1 to 3 sentences: the exchanges of today and the main opportunity. |
 | `currentLinks` | Link[] | The exchanges that exist today. Can be empty. |
-| `opportunities` | Opportunity[] | Exchanges to start. Can be empty. |
+| `opportunities` | Opportunity[] | Exchanges to start. Can be empty in versions 2 and 3. Version 4: exactly 1, the best one. |
+| `teamOpportunities` | Opportunity[] | Required from version 4. Can be empty. The other opportunities. The report does not show them: the team page `/equipe` shows them. |
 | `safeguards` | string[] | The general rules. Use the 5 rules below, in French, and add the rules for this employee. |
-| `prompts` | Prompt[] | Same form as section 6. `order` starts at 1 again. Can be empty. |
+| `prompts` | Prompt[] | Same form as section 6. `order` starts at 1 again. Can be empty. Version 4: only the prompts for the 1 opportunity. |
 
 Link:
 
@@ -206,7 +212,15 @@ What the audit could not decide from the workspace alone.
 | `id` | string | `Q` and 1 to 3 digits. Example: `Q1`. Unique in the report. |
 | `question` | string | One sentence. |
 | `context` | string | Why it matters, and what the audit saw. |
-| `askTo` | enum | `employé`, `J` or `équipe`. Write the accent. The page groups the questions by this field. |
+| `askTo` | enum | `employé`, `J` or `équipe`. Write the accent. |
+
+Who sees a question:
+
+- `employé`: the employee answers it in a short form on their report page (text, 2,000 characters at most). The answers are in the database (table `question_answers`, key: employee and question id). A new seed keeps them. An admin sees the answers on the report page and a count on `/admin`.
+- `J`: only an admin sees it, on the report page.
+- `équipe`: the team page `/equipe` shows it, for the published reports. The report page of the employee links to it.
+
+Remove each question that J's standard already answers.
 
 ## 11. Note (`notes`, optional)
 
@@ -226,8 +240,21 @@ In all text fields except `prompt`, the page shows two inline formats:
 
 The page shows no other Markdown and no HTML. Line breaks in a text field are not kept: use more list items.
 
-## 13. Access
+## 13. Score (`scores`, version 4)
+
+One entry for each of the 4 categories of section 5, also a category with no finding. The seed check refuses a missing or a duplicate category.
+
+| Field | Type | Rule |
+|---|---|---|
+| `category` | enum | One of the 4 categories of section 5. |
+| `score` | integer | 1 to 5. 5 = no fault. |
+| `reason` | string | One sentence. |
+
+The page shows the scores in the section "Scores", after "Mesures".
+
+## 14. Access
 
 - An employee signs in when their email is in `EMPLOYEE_EMAILS`. They read only their own report, and only when `status` is `published`.
 - An admin (email in `ADMIN_EMAILS`) reads all reports, drafts too, and the index `/admin`.
-- Each signed-in person reads the deck `/presentation`.
+- Each signed-in person reads the deck `/presentation` and the team page `/equipe`. The team page shows only published reports, also to an admin.
+- Only the employee of a published report saves answers to its `employé` questions.

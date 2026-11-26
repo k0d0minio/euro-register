@@ -2,16 +2,18 @@
 
 ## Next action
 
-<What the next session, or the operator, does first.>
+J reads the spec, checks the 3 choices in its section Open questions, and ticks **Spec
+approved** on pull request #4. Then J says `build triage/report-schema-v4`.
 
 ## How to test
 
-<1 to 3 short sentences that can be said aloud: where to go on the preview, what to do, what the operator must see.>
+After the build: sign in as an employee, open your report, answer a question and save. Open
+"Page équipe" from the header. Sign in as an admin and see the answer on the report page.
 
 ## Blockers
 
-- none
+- Spec approved is not ticked.
 
 ## Do not touch
 
-- none
+- `~/euro-register-data/rapports/`: the audit sessions write those files.

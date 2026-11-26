@@ -5,5 +5,5 @@
 - link: `.icm/intake/triage/report-schema-v5.md`
 - branch: triage/report-schema-v5
 - lane: spine
-- pr: pending
+- pr: #5
 - started: 2026-11-26

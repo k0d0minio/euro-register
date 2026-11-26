@@ -13,9 +13,11 @@ type Props = {
   maxChars: number;
   /** The development preview shows the form with no save. */
   disabled?: boolean;
+  /** The simple view of version 5 shows no question id. */
+  showIds?: boolean;
 };
 
-export function AnswersForm({ slug, questions, answers, maxChars, disabled = false }: Props) {
+export function AnswersForm({ slug, questions, answers, maxChars, disabled = false, showIds = true }: Props) {
   const [state, action, pending] = useActionState<AnswersState, FormData>(submitAnswers, { status: "idle" });
 
   return (
@@ -25,11 +27,11 @@ export function AnswersForm({ slug, questions, answers, maxChars, disabled = fal
         {questions.map((q) => (
           <li key={q.id} id={`question-${q.id}`} className="scroll-mt-24 rounded-xl border border-line bg-surface p-5">
             <label htmlFor={`reponse-${q.id}`} className="flex gap-3 font-semibold leading-snug">
-              <span className="mt-px shrink-0 font-mono text-xs font-normal text-muted">{q.id}</span>
+              {showIds && <span className="mt-px shrink-0 font-mono text-xs font-normal text-muted">{q.id}</span>}
               <span><RichText text={q.question} /></span>
             </label>
-            <p className="mt-2 pl-8 text-sm leading-relaxed text-muted"><RichText text={q.context} /></p>
-            <div className="mt-3 pl-8">
+            <p className={`mt-2 text-sm ${showIds ? "pl-8" : ""} leading-relaxed text-muted`}><RichText text={q.context} /></p>
+            <div className={`mt-3 ${showIds ? "pl-8" : ""}`}>
               <textarea
                 id={`reponse-${q.id}`}
                 name={`q:${q.id}`}

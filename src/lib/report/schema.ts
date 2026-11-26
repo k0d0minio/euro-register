@@ -6,13 +6,15 @@ import { z } from "zod";
  * Documentation: docs/report-schema.md. Change both files together,
  * and increase REPORT_SCHEMA_VERSION when a change is not backward compatible.
  */
-export const REPORT_SCHEMA_VERSION = 4 as const;
+export const REPORT_SCHEMA_VERSION = 5 as const;
 /**
  * Versions that the app still reads. Version 1 has no `collaboration`.
  * Version 2 has no `structure`, `risks`, `openQuestions` or `notes`.
  * Version 3 has the 4 old severities and no `scores` or `teamOpportunities`.
+ * Version 4 has no `simple`.
+ * The seed accepts only REPORT_SCHEMA_VERSION. The page still reads the older reports in the database.
  */
-export const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3, 4] as const;
+export const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3, 4, 5] as const;
 
 /** The 3 severities of version 4 (J's standard, 2026-11-26). The page shows only these. */
 export const SEVERITIES = ["urgent", "important", "souhaitable"] as const;
@@ -39,6 +41,8 @@ export const ANSWER_MAX_CHARS = 2000;
 
 /** Limits of a version 4 report (J's standard, section 3). */
 export const V4_LIMITS = { strengths: 3, prompts: 5, nextSteps: 5, opportunities: 1 } as const;
+/** Limits of the simple view of version 5 (J, 2026-11-26). */
+export const SIMPLE_LIMITS = { headline: 220, strengths: 3, strength: 120, actions: 3, title: 70, why: 200 } as const;
 export const CATEGORIES = [
   "conventions ICM",
   "efficacité tokens",
@@ -175,6 +179,30 @@ export const scoreSchema = z.object({
   reason: text,
 });
 
+const maxChars = (n: number) => text.max(n, `${n} caractères au maximum`);
+
+export const simpleActionSchema = z.object({
+  order: z.number().int().positive(),
+  title: maxChars(SIMPLE_LIMITS.title),
+  why: maxChars(SIMPLE_LIMITS.why),
+  /** The text that the employee pastes into Claude. */
+  prompt: text,
+  findingIds: z.array(text),
+});
+
+/** The simple view of version 5: what the employee reads first. */
+export const simpleSchema = z.object({
+  headline: maxChars(SIMPLE_LIMITS.headline),
+  strengths: z
+    .array(maxChars(SIMPLE_LIMITS.strength))
+    .min(1, "1 point fort au minimum")
+    .max(SIMPLE_LIMITS.strengths, `${SIMPLE_LIMITS.strengths} points forts au maximum`),
+  actions: z
+    .array(simpleActionSchema)
+    .min(1, "1 action au minimum")
+    .max(SIMPLE_LIMITS.actions, `${SIMPLE_LIMITS.actions} actions au maximum`),
+});
+
 /** The parent path of a node path. The root ("") has no parent. */
 export function parentPath(path: string): string | null {
   if (path === "") return null;
@@ -214,7 +242,7 @@ function checkOrder(prompts: { order: number }[], path: (string | number)[], ctx
 
 export const reportContentSchema = z
   .object({
-    schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+    schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
     auditDate: z.iso.date(),
     source: text,
     summary: z.object({
@@ -238,6 +266,8 @@ export const reportContentSchema = z
     notes: z.array(noteSchema).optional(),
     /** Required from version 4: one score for each category. */
     scores: z.array(scoreSchema).optional(),
+    /** Required from version 5: the simple view. */
+    simple: simpleSchema.optional(),
   })
   .superRefine((report, ctx) => {
     const ids = new Set<string>();
@@ -303,6 +333,15 @@ export const reportContentSchema = z
     }
     if (report.openQuestions) checkUniqueIds(report.openQuestions, "openQuestions", ctx);
     checkVersion4(report, ctx);
+    if (report.simple) {
+      if (report.schemaVersion < 5) {
+        ctx.addIssue({ code: "custom", path: ["simple"], message: "à partir de schemaVersion 5 seulement" });
+      }
+      checkOrder(report.simple.actions, ["simple", "actions"], ctx);
+      report.simple.actions.forEach((a, i) => checkFindingRefs(a.findingIds, ids, ["simple", "actions", i, "findingIds"], ctx));
+    } else if (report.schemaVersion >= 5) {
+      ctx.addIssue({ code: "custom", path: ["simple"], message: "obligatoire à partir de schemaVersion 5" });
+    }
   });
 
 type RawReport = {
@@ -382,6 +421,8 @@ export type OpenQuestion = z.infer<typeof openQuestionSchema>;
 export type AskTo = (typeof ASK_TO)[number];
 export type Note = z.infer<typeof noteSchema>;
 export type Score = z.infer<typeof scoreSchema>;
+export type Simple = z.infer<typeof simpleSchema>;
+export type SimpleAction = z.infer<typeof simpleActionSchema>;
 export type CollaborationOpportunity = z.infer<typeof collaborationOpportunitySchema>;
 
 /** Seed file: one employee and the content of their report. */

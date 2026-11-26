@@ -10,6 +10,8 @@
  *
  * The data lives OUTSIDE the repo. The script refuses a path inside the repo,
  * except the invented example in fixtures/.
+ *
+ * A new file must use REPORT_SCHEMA_VERSION. The page still reads older reports in the database.
  */
 import "dotenv/config";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -18,7 +20,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
 import { employees, reports } from "../src/db/schema";
-import { seedFileSchema, type SeedFile } from "../src/lib/report/schema";
+import { REPORT_SCHEMA_VERSION, seedFileSchema, type SeedFile } from "../src/lib/report/schema";
 
 const repoRoot = path.resolve(__dirname, "..");
 const fixturesDir = path.join(repoRoot, "fixtures");
@@ -63,6 +65,14 @@ async function main() {
       raw = JSON.parse(readFileSync(file, "utf8"));
     } catch (e) {
       console.error(`✗ ${file} : JSON invalide (${(e as Error).message})`);
+      errors++;
+      continue;
+    }
+    // A new file uses the current version only. The page still reads the older reports in the database.
+    const version = (raw as { report?: { schemaVersion?: unknown } } | null)?.report?.schemaVersion;
+    if (version !== REPORT_SCHEMA_VERSION) {
+      console.error(`✗ ${file}`);
+      console.error(`    report.schemaVersion : ${String(version)} refusé, écrire la version ${REPORT_SCHEMA_VERSION} (docs/report-schema.md)`);
       errors++;
       continue;
     }

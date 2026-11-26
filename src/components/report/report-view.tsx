@@ -1,4 +1,4 @@
-import type { ReportContent, Severity } from "@/lib/report/schema";
+import { ANSWER_MAX_CHARS, toSeverity, type ReportContent, type Severity } from "@/lib/report/schema";
 import { Reveal } from "@/components/ui/reveal";
 import { RichText } from "@/components/ui/rich-text";
 import { FindingsList } from "./findings-list";
@@ -6,20 +6,37 @@ import { PromptCard } from "./prompt-card";
 import { CollaborationView } from "./collaboration-view";
 import { formatBytes, formatDate, nf, nodeAnchor } from "./format";
 import { NotesView, QuestionsView } from "./questions-view";
+import { ScoresView } from "./scores-view";
+import { AnswersForm } from "./answers-form";
+import Link from "next/link";
+import type { Answers } from "@/lib/report/repo";
 import { RisksView } from "./risks-view";
 import { StructureTree } from "./structure-tree";
 import { Toc, TocMobile, type TocItem } from "./toc";
 import type { NodeLinks } from "./findings-list";
 import { SeverityBadge, StatusBadge } from "@/components/ui/badges";
 
+/**
+ * Who reads the page. `admin` sees every question and the answers. `employee` answers
+ * their `employé` questions and sees no `J` question. `preview` is the development
+ * preview: the admin view, with no database.
+ */
+export type ReportAudience =
+  | { mode: "admin"; answers: Answers }
+  | { mode: "employee"; slug: string; answers: Answers }
+  | { mode: "preview" };
+
 type Props = {
   employee: { name: string; role: string };
   status: "draft" | "published";
   updatedAt?: Date;
   content: ReportContent;
+  audience: ReportAudience;
+  /** The team page. */
+  teamHref: string;
 };
 
-const rank: Record<Severity, number> = { critique: 0, élevé: 1, moyen: 2, faible: 3 };
+const rank: Record<Severity, number> = { urgent: 0, important: 1, souhaitable: 2 };
 
 function Section({ id, title, children, intro }: { id: string; title: string; intro?: string; children: React.ReactNode }) {
   return (
@@ -31,7 +48,7 @@ function Section({ id, title, children, intro }: { id: string; title: string; in
   );
 }
 
-export function ReportView({ employee, status, updatedAt, content: r }: Props) {
+export function ReportView({ employee, status, updatedAt, content: r, audience, teamHref }: Props) {
   const m = r.metrics;
   const stats: { label: string; value: string; note?: string }[] = [
     { label: "Fichiers", value: nf.format(m.fileCount) },
@@ -59,10 +76,16 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
   for (const e of m.extra) stats.push(e);
 
   const prompts = [...r.prompts].sort((a, b) => a.order - b.order);
-  const findingsBySeverity = [...r.findings].sort((a, b) => rank[a.severity] - rank[b.severity]);
+  const findingsBySeverity = [...r.findings].sort((a, b) => rank[toSeverity(a.severity)] - rank[toSeverity(b.severity)]);
   const structure = r.structure;
   const risks = r.risks ?? [];
-  const questions = r.openQuestions ?? [];
+  const allQuestions = r.openQuestions ?? [];
+  const isEmployee = audience.mode === "employee";
+  // The employee sees only their own questions. `J` questions are admin only; `équipe` questions are on the team page.
+  const questions = isEmployee ? allQuestions.filter((q) => q.askTo === "employé") : allQuestions;
+  const teamQuestionCount = allQuestions.filter((q) => q.askTo === "équipe").length;
+  const scores = r.scores ?? [];
+  const teamOpportunityCount = r.collaboration?.teamOpportunities?.length ?? 0;
   const notes = r.notes ?? [];
 
   // Finding → node of the tree: the node that names the finding, else the node of its path.
@@ -86,6 +109,7 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
     { id: "synthese", label: "Synthèse" },
     { id: "mesures", label: "Mesures" },
   ];
+  if (scores.length > 0) toc.push({ id: "scores", label: "Scores", count: scores.length });
   if (r.strengths.length > 0) toc.push({ id: "points-forts", label: "Points forts", count: r.strengths.length });
   if (structure) toc.push({ id: "arborescence", label: "Arborescence", count: structure.nodes.length });
   toc.push({ id: "constats", label: "Constats", count: r.findings.length });
@@ -100,7 +124,8 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
         ...(r.nextSteps.length > 0 ? [{ id: "suite", label: "Prochaines étapes", count: r.nextSteps.length }] : []),
       ],
     });
-  if (questions.length > 0) toc.push({ id: "questions", label: "Questions ouvertes", count: questions.length });
+  if (questions.length > 0)
+    toc.push({ id: "questions", label: isEmployee ? "Vos réponses" : "Questions ouvertes", count: questions.length });
   if (notes.length > 0) toc.push({ id: "notes", label: "Notes", count: notes.length });
   if (r.collaboration) toc.push({ id: "communication", label: "Communication" });
 
@@ -155,6 +180,12 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
               ))}
             </dl>
           </Section>
+
+          {scores.length > 0 && (
+            <Section id="scores" title="Scores" intro="Une note de 1 à 5 par catégorie. 5 = aucun défaut.">
+              <ScoresView scores={scores} />
+            </Section>
+          )}
 
           {r.strengths.length > 0 && (
             <Section id="points-forts" title="Points forts">
@@ -244,10 +275,30 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
             </Section>
           )}
 
-          {questions.length > 0 && (
-            <Section id="questions" title="Questions ouvertes" intro="Ce que l'audit n'a pas pu trancher à partir de l'espace de travail seul.">
-              <QuestionsView questions={questions} />
-            </Section>
+          {questions.length > 0 &&
+            (audience.mode === "employee" ? (
+              <Section
+                id="questions"
+                title="Vos réponses"
+                intro="L'audit n'a pas pu trancher ces points à partir de l'espace de travail seul. Une réponse courte suffit. Vous pouvez la modifier plus tard."
+              >
+                <AnswersForm
+                  slug={audience.slug}
+                  questions={questions}
+                  answers={Object.fromEntries(Object.entries(audience.answers).map(([id, a]) => [id, a.answer]))}
+                  maxChars={ANSWER_MAX_CHARS}
+                />
+              </Section>
+            ) : (
+              <Section id="questions" title="Questions ouvertes" intro="Ce que l'audit n'a pas pu trancher à partir de l'espace de travail seul.">
+                <QuestionsView questions={questions} answers={audience.mode === "admin" ? audience.answers : {}} />
+              </Section>
+            ))}
+          {isEmployee && teamQuestionCount > 0 && (
+            <p className="-mt-10 text-sm text-muted">
+              {teamQuestionCount} question{teamQuestionCount > 1 ? "s" : ""} pour l&apos;équipe :{" "}
+              <Link href={`${teamHref}#questions`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
+            </p>
           )}
 
           {notes.length > 0 && (
@@ -263,6 +314,12 @@ export function ReportView({ employee, status, updatedAt, content: r }: Props) {
               intro="Les espaces de travail peuvent échanger leurs sorties par des dossiers partagés (OneDrive)."
             >
               <CollaborationView data={r.collaboration} />
+              {teamOpportunityCount > 0 && (
+                <p className="mt-6 text-sm text-muted">
+                  {teamOpportunityCount} autre{teamOpportunityCount > 1 ? "s" : ""} opportunité{teamOpportunityCount > 1 ? "s" : ""} :{" "}
+                  <Link href={`${teamHref}#opportunites`} className="text-accent underline-offset-4 hover:underline">voir la page équipe</Link>.
+                </p>
+              )}
             </Section>
           )}
         </div>

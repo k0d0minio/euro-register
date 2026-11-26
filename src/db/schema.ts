@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { ReportContent } from "@/lib/report/schema";
@@ -32,6 +33,24 @@ export const reports = pgTable("reports", {
   status: reportStatus("status").notNull().default("draft"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * The employee's answers to the `employé` questions of their report (schema v4).
+ * The key is the question id, so a new seed of the same slug keeps the answers.
+ */
+export const questionAnswers = pgTable(
+  "question_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    questionId: text("question_id").notNull(),
+    answer: text("answer").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("question_answers_employee_question_unique").on(t.employeeId, t.questionId)],
+);
 
 /** Single-use sign-in tokens. Only the SHA-256 hash is stored. */
 export const magicLinkTokens = pgTable("magic_link_tokens", {
